@@ -30,6 +30,12 @@
 # skipping the check. Values are handed to `podman exec --env-file`, never as a
 # command-line argument, so they never show up in `ps` for the lifetime of the
 # session.
+#
+# Git over SSH is opt-in the same way: an optional private key (ideally a per-repo
+# deploy key) at the workspace root, .podman-sandbox-ssh-key, held to the same mode-600
+# and git-ignored checks. It's already visible inside the container through the
+# workspace bind mount, so nothing extra is mounted — this script only points
+# GIT_SSH_COMMAND at it for the session.
 set -euo pipefail
 
 SOURCE="${BASH_SOURCE[0]}"
@@ -73,25 +79,46 @@ CONTAINER_ID="$("$SCRIPT_DIR/find-container.sh" --workspace "$WORKSPACE")" || {
     exit 1
 }
 
-SECRETS_FILE="$WORKSPACE/.env.podman-sandbox-secrets"
-ENV_FILE_ARGS=()
-
-if [ -e "$SECRETS_FILE" ]; then
-    PERMS="$(stat -f '%OLp' "$SECRETS_FILE" 2>/dev/null || stat -c '%a' "$SECRETS_FILE")"
-    if [ "$PERMS" != "600" ]; then
-        echo "Refusing to use $SECRETS_FILE: mode is $PERMS, must be 600." >&2
-        echo "Fix with: chmod 600 $SECRETS_FILE" >&2
+# Refuses (hard error, not a silent skip) to use a credential file that isn't mode 600
+# and git-ignored.
+require_private_file() {
+    local file="$1"
+    local perms
+    # GNU form first: on Linux, `stat -f` means filesystem status and "succeeds" with
+    # junk, while BSD/macOS stat rejects -c and falls through.
+    perms="$(stat -c '%a' "$file" 2>/dev/null || stat -f '%OLp' "$file")"
+    if [ "$perms" != "600" ]; then
+        echo "Refusing to use $file: mode is $perms, must be 600." >&2
+        echo "Fix with: chmod 600 $file" >&2
         exit 1
     fi
     if git -C "$WORKSPACE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        if ! git -C "$WORKSPACE" check-ignore -q -- "$SECRETS_FILE"; then
-            echo "Refusing to use $SECRETS_FILE: it is not git-ignored in $WORKSPACE." >&2
+        if ! git -C "$WORKSPACE" check-ignore -q -- "$file"; then
+            echo "Refusing to use $file: it is not git-ignored in $WORKSPACE." >&2
             echo "Add it to .gitignore before storing secrets in it." >&2
             exit 1
         fi
     fi
+}
+
+SECRETS_FILE="$WORKSPACE/.env.podman-sandbox-secrets"
+SSH_KEY_NAME=".podman-sandbox-ssh-key"
+SSH_KEY_FILE="$WORKSPACE/$SSH_KEY_NAME"
+# Must match workspaceFolder in the project's devcontainer.json.
+CONTAINER_WORKSPACE="/workspace"
+EXEC_ARGS=()
+
+if [ -e "$SECRETS_FILE" ]; then
+    require_private_file "$SECRETS_FILE"
     echo "Found secrets file ($SECRETS_FILE) — injecting its entries for this session only."
-    ENV_FILE_ARGS=(--env-file "$SECRETS_FILE")
+    EXEC_ARGS+=(--env-file "$SECRETS_FILE")
+fi
+
+if [ -e "$SSH_KEY_FILE" ]; then
+    require_private_file "$SSH_KEY_FILE"
+    echo "Found SSH key ($SSH_KEY_FILE) — using it for git over SSH this session."
+    # A path, not a secret, so it's fine on the command line.
+    EXEC_ARGS+=(--env "GIT_SSH_COMMAND=ssh -i $CONTAINER_WORKSPACE/$SSH_KEY_NAME -o IdentitiesOnly=yes")
 fi
 
 if [ "$SHELL_MODE" = true ]; then
@@ -100,4 +127,4 @@ else
     CMD=(claude --permission-mode auto "$@")
 fi
 
-podman exec -it "${ENV_FILE_ARGS[@]}" "$CONTAINER_ID" "${CMD[@]}"
+podman exec -it ${EXEC_ARGS[@]+"${EXEC_ARGS[@]}"} "$CONTAINER_ID" "${CMD[@]}"

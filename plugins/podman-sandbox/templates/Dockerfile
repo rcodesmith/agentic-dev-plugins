@@ -106,6 +106,14 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
+# Pin GitHub's SSH host keys so `git` over SSH doesn't fail with "Host key verification
+# failed" (no interactive prompt to accept them). Fetched at build time — builds aren't
+# firewalled — from the same api.github.com/meta endpoint init-firewall.sh trusts for
+# GitHub's IP ranges. Only matters if the project opts into an SSH key; see the skill.
+RUN mkdir -p -m 700 /home/node/.ssh && \
+  wget -qO- https://api.github.com/meta | jq -r '.ssh_keys[] | "github.com " + .' > /home/node/.ssh/known_hosts && \
+  test -s /home/node/.ssh/known_hosts
+
 
 # Copy and set up firewall script, plus the on-demand web-research toggle
 COPY init-firewall.sh web-research-toggle.sh /usr/local/bin/
