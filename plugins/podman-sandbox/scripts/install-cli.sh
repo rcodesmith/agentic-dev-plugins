@@ -14,6 +14,7 @@ mkdir -p "$BIN_DIR"
 # requires bash 4+.
 COMMANDS=(
     "podman-sandbox-start=start.sh"
+    "podman-sandbox-rebuild=rebuild.sh"
     "podman-sandbox-research-on=research-on.sh"
     "podman-sandbox-research-off=research-off.sh"
     "podman-sandbox-cleanup=cleanup.sh"

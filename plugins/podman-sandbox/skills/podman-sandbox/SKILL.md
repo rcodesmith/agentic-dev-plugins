@@ -90,9 +90,16 @@ about the specific project, not just mechanical copying.
    fails and whatever package manager you added works (e.g. `pip install` / `cargo
    search` / `go list` against its registry).
 
-6. **Log in** (see "Claude Code auth" below — do NOT use the default login flow or
-   `claude setup-token`) and **run `podman-sandbox-start` from inside the target
-   repo** going forward.
+6. **Log in once, before the first `podman-sandbox-start`** (why: "Claude Code auth"
+   below — do NOT use the default login flow or `claude setup-token`):
+   ```
+   podman-sandbox-start --shell      # brings the container up, drops into zsh
+   claude auth login --claudeai      # approve in the browser, paste the code back
+   exit
+   ```
+   Then **run `podman-sandbox-start` from inside the target repo** going forward. Add
+   these three lines as a "First run" section in the project's own
+   `.devcontainer-podman-sandbox/README.md` so the step isn't lost.
 
 ## Daily usage (once installed)
 
@@ -100,6 +107,7 @@ about the specific project, not just mechanical copying.
 cd <project>
 podman-sandbox-start                    # bring up + attach
 podman-sandbox-start --remote-control   # pass extra claude flags through
+podman-sandbox-rebuild                  # rebuild image + recreate container, then attach
 podman-sandbox-research-on              # from a separate terminal, while a session is running
 podman-sandbox-research-off
 podman-sandbox-cleanup                  # remove stopped sandbox containers, any project
@@ -108,6 +116,14 @@ podman-sandbox-cleanup                  # remove stopped sandbox containers, any
 Each project gets its own container identity (named config volume keyed off the
 workspace path) — auth, installed MCP servers, plugins, and the secrets file don't
 carry over between projects by design.
+
+**Edits to the Dockerfile, `init-firewall.sh` (e.g. a new `EXTRA_DOMAINS` entry), or
+`web-research-toggle.sh` need `podman-sandbox-rebuild`.** They're `COPY`ed into the
+image at build time; `podman-sandbox-start` reuses the existing container, and
+restarting it re-runs the old baked-in `init-firewall.sh`. Rebuild uses the build
+cache (`--no-cache` to force every layer, e.g. for a newer Claude Code); `--no-attach`
+stops after the rebuild; other args pass through to `start`. Named volumes survive,
+so no re-login.
 
 To point any of these at a project other than the current directory, add
 `--workspace <path>` (useful for running a quick command against a project you're not
@@ -132,11 +148,21 @@ hosted page (`platform.claude.com/oauth/code/callback`), which shows a code to p
 back into the terminal (`Paste code here if prompted >`) instead of trying a local
 redirect. This works from inside the container, and persists in the
 `claude-code-config-*` named volume — survives container recreation, so it's a
-one-time thing per project:
+one-time thing per project. The container must be running first; the simplest way is
+`podman-sandbox-start --shell`, then `claude auth login --claudeai` at its prompt. If
+it's already up, this does the same from the host:
 
 ```
 devcontainer exec --workspace-folder . --config .devcontainer-podman-sandbox/devcontainer.json --docker-path podman -- claude auth login --claudeai
 ```
+
+Skipping this is easy to do: plain `podman-sandbox-start` launches bare `claude`, and
+with no login that falls into the default flow. Besides the "Sign-in did not complete"
+failure above, it has also been seen to end in the browser with `Redirect URI
+https://platform.claude.com/oauth/code/callback is not supported by client`. Both mean
+the same thing — log in with `--claudeai` as above. `podman-sandbox-start` now checks
+`claude auth status` before launching and stops with these instructions when it
+reports `"loggedIn": false`.
 
 Remote Control (`claude --remote-control`) works once logged in this way. Requires a
 Pro/Max/Team/Enterprise plan; API keys aren't supported.
@@ -234,6 +260,15 @@ wanted:
 - **The firewall allowlist resolves hostnames to IPs once, at container start.** If a
   CDN-backed allowlisted host rotates IPs during a long-lived session, egress to it
   can start failing until the container restarts and `init-firewall.sh` re-resolves.
+  A restart only re-resolves the *existing* list, though — a newly added domain needs
+  `podman-sandbox-rebuild` (see "Daily usage").
+- **An allowlisted host still fails with "No route to host" / instant connection
+  refused.** That's the firewall's final `REJECT` rule: the host isn't in the running
+  container's `allowed-domains` ipset. Usually the domain was added to
+  `EXTRA_DOMAINS` but the container wasn't rebuilt — check with
+  `grep <domain> /usr/local/bin/init-firewall.sh` inside the container. Note the
+  allowlist is by IP, any port, so non-443 ports (e.g. `:8443`) work once the host is
+  listed, while `research-on` only opens 80/443.
 - **Making a host plugin/skill (e.g. one installed via `claude plugin install`)
   available inside the container**: the container's `~/.claude` is an isolated named
   volume, not your host's real one — install it again inside the container,
