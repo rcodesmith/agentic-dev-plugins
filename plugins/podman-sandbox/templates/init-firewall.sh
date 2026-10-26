@@ -9,13 +9,37 @@ IFS=$'\n\t'       # Stricter word splitting
 #   "crates.io" "static.crates.io" "sh.rustup.rs"     # Rust / cargo
 #   "proxy.golang.org" "sum.golang.org"               # Go
 #   "rubygems.org"                                    # Ruby / bundler
+#   "objects.githubusercontent.com" "release-assets.githubusercontent.com"
+#                                                     # GitHub release-asset downloads
 # registry.npmjs.org is already covered below (Claude Code itself needs it).
+# Every domain here must resolve, or the script fails (closed — all egress blocked).
 EXTRA_DOMAINS=(
 )
 # ---------------------------------------------------------------------------
 
+# Fail closed: if anything below aborts (set -e), drop all non-loopback traffic rather
+# than leave a half-built firewall — which is wide open on a fresh container (ACCEPT
+# policies) and silently drops everything on a re-run.
+fail_closed() {
+    local rc=$?
+    if [ "$rc" -ne 0 ]; then
+        iptables -P INPUT DROP
+        iptables -P FORWARD DROP
+        iptables -P OUTPUT DROP
+        echo "ERROR: init-firewall.sh failed (exit $rc) — all egress blocked. Fix, then re-run." >&2
+    fi
+    exit "$rc"
+}
+trap fail_closed EXIT
+
 # 1. Extract Docker DNS info BEFORE any flushing
 DOCKER_DNS_RULES=$(iptables-save -t nat | grep "127\.0\.0\.11" || true)
+
+# Reset policies first: -F/-X don't, so a re-run would otherwise start under the previous
+# run's DROP and hang fetching GitHub's ranges below.
+iptables -P INPUT ACCEPT
+iptables -P FORWARD ACCEPT
+iptables -P OUTPUT ACCEPT
 
 # Flush existing rules and delete existing ipsets
 iptables -F
@@ -63,7 +87,7 @@ ipset create allowed-domains hash:net
 
 # Fetch GitHub meta information and aggregate + add their IP ranges
 echo "Fetching GitHub IP ranges..."
-gh_ranges=$(curl -s https://api.github.com/meta)
+gh_ranges=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/meta)
 if [ -z "$gh_ranges" ]; then
     echo "ERROR: Failed to fetch GitHub IP ranges"
     exit 1
@@ -86,9 +110,18 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 # Resolve and add other allowed domains — the base set Claude Code itself needs, plus
 # whatever this project added to EXTRA_DOMAINS above.
+# claude.ai / platform.claude.com: `claude auth login --claudeai` + token refresh;
+# mcp-proxy.anthropic.com: claude.ai MCP connectors; downloads.claude.ai: Claude Code
+# version checks; raw.githubusercontent.com: plugin marketplaces. Several share an IP
+# with api.anthropic.com or GitHub's ranges today — listed so that stays a non-issue.
 BASE_DOMAINS=(
     "registry.npmjs.org"
     "api.anthropic.com"
+    "claude.ai"
+    "platform.claude.com"
+    "mcp-proxy.anthropic.com"
+    "downloads.claude.ai"
+    "raw.githubusercontent.com"
     "sentry.io"
     "statsig.com"
     "marketplace.visualstudio.com"
@@ -141,6 +174,16 @@ iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
 
 # Explicitly REJECT all other outbound traffic for immediate feedback
 iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
+
+# IPv6: nothing is allowlisted over v6 (dig above resolves A records only), so drop it
+# all except loopback — otherwise any v6 route would bypass the rules above.
+ip6tables -F
+ip6tables -X
+ip6tables -P INPUT DROP
+ip6tables -P FORWARD DROP
+ip6tables -P OUTPUT DROP
+ip6tables -A INPUT -i lo -j ACCEPT
+ip6tables -A OUTPUT -o lo -j ACCEPT
 
 echo "Firewall configuration complete"
 echo "Verifying firewall rules..."

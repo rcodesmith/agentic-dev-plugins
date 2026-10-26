@@ -296,6 +296,16 @@ wanted:
 
 ## Troubleshooting
 
+- **Every outbound connection times out (DNS still works), or the firewall log ends
+  with `all egress blocked`.** `init-firewall.sh` failed partway — check `iptables -S`
+  and `ipset list allowed-domains | head` inside the container. Older copies of the
+  template didn't reset the default policies before flushing, so any *re-run* inside an
+  already-firewalled container (e.g. `sudo init-firewall.sh` to pick up a change) hung
+  fetching GitHub's ranges under the previous run's `DROP` and left an empty allowlist;
+  older copies also failed *open* on a fresh container. The current template resets
+  policies first and fails closed. Common failure now: an `EXTRA_DOMAINS` entry that
+  doesn't resolve. Recover with `podman-sandbox-rebuild` — never a bare
+  `podman restart`, which skips `postStartCommand` and so comes back with no firewall.
 - **`init-firewall.sh` aborts mid-run with an `ipset` error.** CDN-backed domains can
   resolve to the same IP as each other across separate `dig` calls within the script
   — a plain `ipset add` errors on that duplicate and, under `set -e`, aborts the
