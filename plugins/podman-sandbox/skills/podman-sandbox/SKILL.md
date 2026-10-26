@@ -80,6 +80,8 @@ about the specific project, not just mechanical copying.
    *does* legitimately need at runtime (e.g. a scoped GitHub PAT for `gh`/`git push`)
    — those go in `.env.podman-sandbox-secrets` at the workspace root, see "Secrets"
    below; make sure it's covered by `.gitignore` before anything is written to it.
+   If the repo's remote is SSH and the agent needs to fetch/push, also see "Optional:
+   git over SSH" (a per-repo deploy key at `.podman-sandbox-ssh-key`).
 
 5. **Bring it up and verify the firewall is actually restrictive**:
    ```
@@ -196,6 +198,52 @@ to cloud storage or gets backed up unencrypted.
 Run `gh auth setup-git` once per session (inside the container) if `GH_TOKEN` is one
 of the entries and you also want `git push`/`pull` over HTTPS to work, not just
 `gh`/API calls.
+
+## Optional: git over SSH
+
+If the repo's `origin` is an SSH URL (`git@github.com:...`) and you'd rather not
+switch it to HTTPS + `gh auth setup-git`, give the sandbox its own key. Out of the box,
+`git fetch` over SSH fails: there's no key in the container, and before the template
+pinned GitHub's host keys it also died first with `Host key verification failed`
+(no TTY to accept them on). The firewall already allows outbound port 22.
+
+1. On the host, generate a key **just for this sandbox** — no passphrase, since
+   nothing in the container can prompt for one:
+   ```
+   ssh-keygen -t ed25519 -N '' -C "podman-sandbox <project>" -f <project>/.podman-sandbox-ssh-key
+   ```
+2. Add the `.pub` half as a **deploy key** on that one repo (Settings → Deploy keys),
+   ticking "Allow write access" only if the agent needs to push. Then delete or move
+   the `.pub` file out of the workspace.
+3. `chmod 600 .podman-sandbox-ssh-key` and make sure it's git-ignored —
+   `podman-sandbox-start` holds it to the same checks as the secrets file and refuses
+   to launch if either fails.
+4. If the project's `.devcontainer-podman-sandbox/Dockerfile` predates the
+   host-key pinning, copy the template's "Pin GitHub's SSH host keys" `RUN` block into
+   it and run `podman-sandbox-rebuild` — `podman-sandbox-start` alone reuses the old
+   image and still fails host-key verification. Otherwise just restart via
+   `podman-sandbox-start`. Either way it sets `GIT_SSH_COMMAND` to use the key
+   (`IdentitiesOnly`, so nothing else is tried). The key is already inside the
+   container through the workspace bind mount — nothing extra is mounted.
+
+Verify from inside: `ssh -T git@github.com` should greet the repo by name.
+
+Why a deploy key rather than the alternatives:
+
+- **Forwarding the host's SSH agent** exposes *every* key it holds, for every host and
+  repo they unlock, to anything running in the container — and through a macOS
+  `podman machine` VM the host's agent socket doesn't reliably reach the container
+  anyway.
+- **Mounting `~/.ssh`** puts your real private keys inside the sandbox, which is
+  exactly the host-credential mount this pattern avoids.
+
+A deploy key reaches one repo, can be read-only, and is revocable on its own. As with
+the PAT, treat it as reachable by anything in the container during `research-on`.
+
+Only GitHub's host keys are pinned (Dockerfile, from `api.github.com/meta` at build
+time). For another SSH remote, append its keys to `/home/node/.ssh/known_hosts` in the
+Dockerfile the same way — check them against the provider's published fingerprints
+rather than trusting a bare `ssh-keyscan`.
 
 ## Optional: browser automation (Playwright MCP)
 
