@@ -124,7 +124,22 @@ fi
 if [ "$SHELL_MODE" = true ]; then
     CMD=(zsh)
 else
+    # Bare `claude` with no login falls into the default first-run login, which can't
+    # complete inside the container. Stop and point at the flow that works instead.
+    # Fails open: only an explicit "loggedIn": false blocks, so an unexpected output
+    # format never locks you out.
+    AUTH_STATUS="$(podman exec "$CONTAINER_ID" claude auth status 2>&1 || true)"
+    if printf '%s' "$AUTH_STATUS" | grep -Eq '"loggedIn"[[:space:]]*:[[:space:]]*false'; then
+        echo "Claude Code isn't logged in inside this sandbox yet. Log in once with:" >&2
+        echo "  podman-sandbox-start --shell" >&2
+        echo "  claude auth login --claudeai    # approve in the browser, paste the code back" >&2
+        echo "  exit" >&2
+        echo "then run podman-sandbox-start again." >&2
+        exit 1
+    fi
     CMD=(claude --permission-mode auto "$@")
 fi
 
+# ${ARR[@]+...} rather than "${ARR[@]}": bash < 4.4 (macOS /bin/bash is 3.2) treats an
+# empty array as unbound under set -u.
 podman exec -it ${EXEC_ARGS[@]+"${EXEC_ARGS[@]}"} "$CONTAINER_ID" "${CMD[@]}"
