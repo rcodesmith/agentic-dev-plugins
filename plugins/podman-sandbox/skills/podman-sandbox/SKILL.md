@@ -218,7 +218,11 @@ pinned GitHub's host keys it also died first with `Host key verification failed`
 3. `chmod 600 .podman-sandbox-ssh-key` and make sure it's git-ignored —
    `podman-sandbox-start` holds it to the same checks as the secrets file and refuses
    to launch if either fails.
-4. Restart via `podman-sandbox-start`. It sets `GIT_SSH_COMMAND` to use the key
+4. If the project's `.devcontainer-podman-sandbox/Dockerfile` predates the
+   host-key pinning, copy the template's "Pin GitHub's SSH host keys" `RUN` block into
+   it and run `podman-sandbox-rebuild` — `podman-sandbox-start` alone reuses the old
+   image and still fails host-key verification. Otherwise just restart via
+   `podman-sandbox-start`. Either way it sets `GIT_SSH_COMMAND` to use the key
    (`IdentitiesOnly`, so nothing else is tried). The key is already inside the
    container through the workspace bind mount — nothing extra is mounted.
 
