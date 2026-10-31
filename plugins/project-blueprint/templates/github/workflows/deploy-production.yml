@@ -1,0 +1,38 @@
+# Promote an artifact that already exists to production. Plans unless `apply` is ticked.
+name: deploy-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        description: Existing artifact tag to promote, e.g. main-<sha>
+        type: string
+        required: true
+      apply:
+        description: Apply (unticked = plan only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC to the cloud; remove from build, deploy-production and deploy-environment together
+
+jobs:
+  require-main:
+    runs-on: ubuntu-latest
+    steps:
+      # A failing step, not a job-level `if:` — a skipped run would show green.
+      - run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::deploy-production runs only from main (got $GITHUB_REF)"
+            exit 1
+          fi
+
+  deploy:
+    needs: require-main
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: production
+      artifact: ${{ inputs.artifact }}
+      apply: ${{ inputs.apply }}
+    secrets: inherit

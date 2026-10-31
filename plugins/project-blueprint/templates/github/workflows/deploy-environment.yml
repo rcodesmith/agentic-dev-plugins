@@ -1,0 +1,40 @@
+# Reusable: deploy an existing artifact to one environment. Never builds.
+name: deploy-environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      artifact:
+        description: Existing artifact tag, e.g. main-<sha>. Required so a deploy only ships an artifact someone named.
+        type: string
+        required: true
+      apply:
+        description: false = plan only
+        type: boolean
+        required: true
+      deployable:
+        description: Monorepos only; separates each deployable's deploy queue.
+        type: string
+        default: app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC to the cloud; remove from build, deploy-production and deploy-environment together
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.deployable }}-${{ inputs.environment }}
+      cancel-in-progress: false # a half-finished apply is worse than a queued one
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          ARTIFACT: ${{ inputs.artifact }}
+          MODE: ${{ inputs.apply && 'apply' || 'plan' }}
+        run: just deploy "$ENVIRONMENT" "$ARTIFACT" "$MODE"

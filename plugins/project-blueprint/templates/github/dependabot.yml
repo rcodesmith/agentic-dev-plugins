@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    cooldown:
+      default-days: 7
+
+  # From the language pack: uv | gomod | npm
+  - package-ecosystem: LANGUAGE_ECOSYSTEM
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dependencies:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    cooldown:
+      default-days: 7

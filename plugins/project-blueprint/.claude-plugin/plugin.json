@@ -1,0 +1,20 @@
+{
+  "name": "project-blueprint",
+  "description": "Bootstrap and maintain projects to one blueprint: standard commands, quality gates, trunk-based delivery and the sandbox, across Python, Go and TypeScript. Builds on mattpocock-skills and podman-sandbox.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Ron Smith"
+  },
+  "keywords": [
+    "blueprint",
+    "bootstrap",
+    "trunk-based",
+    "ci",
+    "conventions"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": [
+    "podman-sandbox",
+    "mattpocock-skills@claude-plugins-official"
+  ]
+}

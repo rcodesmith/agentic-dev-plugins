@@ -5,13 +5,36 @@
   "owner": {
     "name": "Ron Smith"
   },
+  "allowCrossMarketplaceDependenciesOn": [
+    "claude-plugins-official"
+  ],
   "plugins": [
     {
       "name": "podman-sandbox",
       "source": "./plugins/podman-sandbox",
       "description": "Run Claude Code in auto mode inside a Podman devcontainer, using a default-deny egress firewall as the real security boundary instead of per-directory prompts.",
       "category": "sandboxing",
-      "tags": ["podman", "devcontainer", "sandbox", "firewall", "security"],
+      "tags": [
+        "podman",
+        "devcontainer",
+        "sandbox",
+        "firewall",
+        "security"
+      ],
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "project-blueprint",
+      "source": "./plugins/project-blueprint",
+      "description": "Bootstrap and maintain projects to one blueprint: standard just commands, quality gates, trunk-based delivery and the podman sandbox, across Python, Go and TypeScript.",
+      "category": "development",
+      "tags": [
+        "blueprint",
+        "bootstrap",
+        "trunk-based",
+        "ci",
+        "conventions"
+      ],
       "license": "Apache-2.0"
     }
   ]

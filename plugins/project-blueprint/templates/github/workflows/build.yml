@@ -1,0 +1,57 @@
+# Services only. When `check` passes on a push to main: build one artifact, deploy it to dev.
+name: build
+
+on:
+  workflow_run:
+    workflows: [check]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write # OIDC to the cloud; remove from build, deploy-production and deploy-environment together
+
+concurrency:
+  group: build-main
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.tag.outputs.artifact }}
+      is-tip: ${{ steps.tip.outputs.is-tip }}
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: jdx/mise-action@v5
+      - run: just setup
+      - id: tag
+        run: echo "artifact=main-${SHA}" >> "$GITHUB_OUTPUT"
+      - env:
+          ARTIFACT: ${{ steps.tag.outputs.artifact }}
+        run: just package "$ARTIFACT"
+      # A slower, older run must not overwrite dev with an older commit.
+      - id: tip
+        run: |
+          git fetch --quiet origin main
+          if [ "$(git rev-parse origin/main)" = "$SHA" ]; then
+            echo "is-tip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is-tip=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$SHA is no longer the tip of main; packaged but not deployed to dev"
+          fi
+
+  deploy-development:
+    needs: package
+    if: needs.package.outputs.is-tip == 'true'
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: development
+      artifact: ${{ needs.package.outputs.artifact }}
+      apply: true
+    secrets: inherit

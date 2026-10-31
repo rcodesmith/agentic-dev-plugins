@@ -1,0 +1,16 @@
+pre-commit:
+  parallel: true
+  commands:
+    trunk-guard:
+      # Commit on a work branch (see trunk-delivery). The first commit of an empty repo is allowed.
+      run: |
+        git rev-parse -q --verify HEAD >/dev/null || exit 0
+        case "$(git branch --show-current)" in
+          main|master) echo "Commit on a work branch, not $(git branch --show-current)."; exit 1 ;;
+        esac
+    fmt-check:
+      run: just fmt-check
+    lint:
+      run: just lint
+    secrets:
+      run: gitleaks git --pre-commit --staged --redact --verbose --no-banner
