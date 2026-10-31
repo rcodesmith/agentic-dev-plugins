@@ -53,13 +53,17 @@ about the specific project, not just mechanical copying.
    as a starting point.
 
 2. **Inspect the target repo and adapt the Dockerfile's toolchain section.** Look for
-   `pyproject.toml`/`requirements.txt` (Python), `package.json` (Node — already
-   covered by the Node 20 base image, usually nothing to add), `go.mod` (Go),
+   `pyproject.toml`/`requirements.txt` (Python), `package.json` (Node — covered by
+   the Node base image; set the `NODE_VERSION` build arg in `devcontainer.json` to the
+   project's Node major), `go.mod` (Go),
    `Cargo.toml` (Rust), `Gemfile` (Ruby), etc. Add whatever the project needs to
    build/run in the marked `CUSTOMIZE HERE` section of the Dockerfile. Prefer a
    pinned static-binary release over piping a shell installer, same reasoning as the
    Dockerfile's own existing tools (reproducible, auditable; a `curl|sh` installer
    downloaded fresh on every build is neither).
+   The base image already ships `just`, `lefthook`, `gitleaks`, `mise`, `actionlint`,
+   `shellcheck` and `yq`; change their `*_VERSION` build args rather than reinstalling
+   them.
 
 3. **Add matching entries to `EXTRA_DOMAINS` in `init-firewall.sh`.** Whatever
    registry the toolchain above needs to reach at container *runtime* (not build
