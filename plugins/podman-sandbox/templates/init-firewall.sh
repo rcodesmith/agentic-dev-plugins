@@ -114,6 +114,9 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 # mcp-proxy.anthropic.com: claude.ai MCP connectors; downloads.claude.ai: Claude Code
 # version checks; raw.githubusercontent.com: plugin marketplaces. Several share an IP
 # with api.anthropic.com or GitHub's ranges today — listed so that stays a non-issue.
+# The documentation block lets the agent read reference docs without the web-research
+# toggle. Most of these sit on shared CDN/Vercel IPs, so allowlisting one also reaches
+# whatever else is hosted on the same address — accepted for read-only docs.
 BASE_DOMAINS=(
     "registry.npmjs.org"
     "api.anthropic.com"
@@ -127,6 +130,20 @@ BASE_DOMAINS=(
     "marketplace.visualstudio.com"
     "vscode.blob.core.windows.net"
     "update.code.visualstudio.com"
+    # Documentation
+    "docs.aws.amazon.com"
+    "aws.amazon.com"
+    "developer.hashicorp.com"
+    "zitadel.com"
+    "caddyserver.com"
+    "letsencrypt.org"
+    "fastapi.tiangolo.com"
+    "pnpm.io"
+    "vite.dev"
+    "react.dev"
+    "developer.mozilla.org"
+    "nodejs.org"
+    "grafana.com"
 )
 for domain in "${BASE_DOMAINS[@]}" "${EXTRA_DOMAINS[@]}"; do
     echo "Resolving $domain..."
