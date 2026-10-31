@@ -138,6 +138,12 @@ else
         exit 1
     fi
     CMD=(claude --permission-mode auto "$@")
+    # herdr finds agents by the pane's foreground process, which here is `podman`, not
+    # `claude` -- and the hook integration can't reach herdr's socket from inside the
+    # container. HERDR_AGENT on the host-side wrapper tells herdr to read this pane's
+    # screen with its Claude manifest (https://herdr.dev/docs/agents, "VMs and sandbox
+    # wrappers"). Host env only: podman exec doesn't forward it into the container.
+    export HERDR_AGENT=claude
 fi
 
 # ${ARR[@]+...} rather than "${ARR[@]}": bash < 4.4 (macOS /bin/bash is 3.2) treats an
