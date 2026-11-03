@@ -17,6 +17,7 @@ COMMANDS=(
     "podman-sandbox-rebuild=rebuild.sh"
     "podman-sandbox-research-on=research-on.sh"
     "podman-sandbox-research-off=research-off.sh"
+    "podman-sandbox-network=network.sh"
     "podman-sandbox-cleanup=cleanup.sh"
 )
 

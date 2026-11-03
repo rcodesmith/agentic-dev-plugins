@@ -79,6 +79,9 @@ CONTAINER_ID="$("$SCRIPT_DIR/find-container.sh" --workspace "$WORKSPACE")" || {
     exit 1
 }
 
+# Honours a saved `podman-sandbox-network open` for this workspace.
+"$SCRIPT_DIR/network.sh" --workspace "$WORKSPACE" apply
+
 # Refuses (hard error, not a silent skip) to use a credential file that isn't mode 600
 # and git-ignored.
 require_private_file() {
