@@ -132,6 +132,37 @@ To point any of these at a project other than the current directory, add
 `--workspace <path>` (useful for running a quick command against a project you're not
 currently sitting in).
 
+## Sharing packages across projects with a tree
+
+A tree is a host folder holding several projects that share one mount and one package store,
+so `uv` and `pnpm` hard link each package once across all of them. Use one tree for projects
+you trust equally, and another for the rest:
+
+```
+~/sandboxes/work/         a tree, mounted at /workspaces in each of its projects' containers
+├── .packages/            the shared store, created on first use
+├── project-a/            each project has its own .devcontainer-podman-sandbox/
+└── project-b/
+```
+
+1. List each tree's path, one per line, in `~/.config/podman-sandbox/trees`.
+2. Clone projects into the tree. Each still gets its own container, login, firewall and session
+   tokens, and sessions start in the project's own folder.
+3. Add `uv` to the `Dockerfile` for Python projects. The template already enables `pnpm` through
+   Corepack, using the version in `packageManager`, so a project copy older than that needs
+   `RUN corepack enable` added. The store is set only for sessions from `podman-sandbox-start`, so
+   run installs there and not through a bare `podman exec` or `devcontainer exec`.
+4. Put worktrees inside the project, created from the container.
+5. Run `podman-sandbox-rebuild` for a project that already has a container.
+
+**A tree is one trust boundary.** Code in any of its sandboxes can read and change every project
+in the tree, including their secrets files and SSH keys, and `podman-sandbox-start` warns about
+those. A tampered store file changes that package in every project, because hard links share one
+file. Recover by deleting `.packages` and reinstalling in each project.
+
+Keep the tree out of cloud-synced folders. On the host, only read and edit files in these
+projects: planted hooks or scripts could otherwise run on the host.
+
 ## Turning network restrictions off
 
 Run these on the host, from the project root. They apply to that project only, and need

@@ -72,12 +72,24 @@ if [ ! -f "$CONFIG" ]; then
     exit 1
 fi
 
-devcontainer up --workspace-folder "$WORKSPACE" --config "$CONFIG" --docker-path podman
+# shellcheck source=tree.sh
+source "$SCRIPT_DIR/tree.sh"
+
+devcontainer up --workspace-folder "$WORKSPACE" --config "$CONFIG" --docker-path podman \
+    ${TREE_UP_ARGS[@]+"${TREE_UP_ARGS[@]}"}
 
 CONTAINER_ID="$("$SCRIPT_DIR/find-container.sh" --workspace "$WORKSPACE")" || {
     echo "devcontainer up succeeded but no matching container is running — aborting." >&2
     exit 1
 }
+
+# devcontainer up reuses an existing container, so one created before this project joined
+# the tree has no tree mount.
+if [ -n "$TREE_ROOT" ] && ! podman exec "$CONTAINER_ID" test -d "$TREE_CONTAINER_WS"; then
+    echo "This project is in tree $TREE_ROOT, but its container predates that." >&2
+    echo "Recreate the container with: podman-sandbox-rebuild" >&2
+    exit 1
+fi
 
 # Honours a saved `podman-sandbox-network open` for this workspace.
 "$SCRIPT_DIR/network.sh" --workspace "$WORKSPACE" apply
@@ -107,19 +119,25 @@ require_private_file() {
 SECRETS_FILE="$WORKSPACE/.env.podman-sandbox-secrets"
 SSH_KEY_NAME=".podman-sandbox-ssh-key"
 SSH_KEY_FILE="$WORKSPACE/$SSH_KEY_NAME"
-# Must match workspaceFolder in the project's devcontainer.json.
-CONTAINER_WORKSPACE="/workspace"
-EXEC_ARGS=()
+# Must match workspaceFolder in the project's devcontainer.json, unless in a tree.
+CONTAINER_WORKSPACE="${TREE_CONTAINER_WS:-/workspace}"
+EXEC_ARGS=(${TREE_EXEC_ARGS[@]+"${TREE_EXEC_ARGS[@]}"})
 
 if [ -e "$SECRETS_FILE" ]; then
     require_private_file "$SECRETS_FILE"
     echo "Found secrets file ($SECRETS_FILE) — injecting its entries for this session only."
     EXEC_ARGS+=(--env-file "$SECRETS_FILE")
+    if [ -n "$TREE_ROOT" ]; then
+        echo "Warning: every sandbox in tree $TREE_ROOT can read this file." >&2
+    fi
 fi
 
 if [ -e "$SSH_KEY_FILE" ]; then
     require_private_file "$SSH_KEY_FILE"
     echo "Found SSH key ($SSH_KEY_FILE) — using it for git over SSH this session."
+    if [ -n "$TREE_ROOT" ]; then
+        echo "Warning: every sandbox in tree $TREE_ROOT can read this key." >&2
+    fi
     # A path, not a secret, so it's fine on the command line.
     EXEC_ARGS+=(--env "GIT_SSH_COMMAND=ssh -i $CONTAINER_WORKSPACE/$SSH_KEY_NAME -o IdentitiesOnly=yes")
 fi

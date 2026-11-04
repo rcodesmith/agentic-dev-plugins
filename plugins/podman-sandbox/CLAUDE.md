@@ -32,6 +32,36 @@ The command is named for network restrictions rather than the firewall, so it ca
 mechanism. Any new restriction must also be lifted in `lift_restrictions`, and reflected in
 `live_state`. `rebuild.sh --no-attach` stays restricted until the next `start.sh`.
 
+## Trees mount several projects so one package store can hard link across them
+
+Hard links and clones can't cross a mount boundary, even on one disk. A store on its own volume
+or host folder therefore forces symlinks, and those failed: `pnpm`'s `enableGlobalVirtualStore`
+moves packages out of the project, so TypeScript can't find `@types`, which gave 77 errors in a
+real build. `uv`'s symlink mode is also documented as discouraged. A store on the same mount as
+the projects lets both tools use their normal hard links.
+
+`scripts/tree.sh` adds the mount with `devcontainer up --mount` and sets the store in `podman exec`
+so per-project `devcontainer.json` files stay unchanged, and projects outside a tree are unaffected.
+The original `/workspace` mount still exists in tree containers, as a second path to the project.
+Tree membership lives in a host file because a marker in a mount could be changed by a sandbox.
+
+Tested 2026-11-03 with `start.sh` and `rebuild.sh` on two trees, using a real Python and pnpm
+project without private dependencies:
+
+- The same files shared one inode across two projects and a worktree. About 1.9 GB on disk, where
+  three full copies would take about 5 GB. Inode numbers can change between checks.
+- `pnpm build`, unit tests and Python imports passed everywhere.
+- Installs in two containers at once passed: 52 s for `uv sync` and 57 s for `pnpm install`, cold.
+- A worktree install with a warm store took 18 s and 21 s, so linking over the mount isn't instant.
+- A rebuild kept everything working offline.
+
+Also confirmed 2026-11-03 in a real project with a nested path in a tree: login, `git ls-remote` over
+HTTPS, a private git dependency, `pnpm build` and unit tests, all from a `--shell` session.
+
+Not yet tested: a working Claude session in a tree, more than one real project in a tree, browser
+Playwright tests, or a Python test suite. Secrets files and sandbox config remain readable and writable
+across a tree (issue #6).
+
 ## Git test record
 
 Tested 2026-11-01 with one-off `podman exec --env` flags in a running sandbox:
