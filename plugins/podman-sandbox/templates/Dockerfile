@@ -1,4 +1,4 @@
-FROM node:20
+FROM node:22
 
 ARG TZ
 ENV TZ="$TZ"
@@ -55,6 +55,28 @@ RUN ARCH=$(dpkg --print-architecture) && \
   sudo dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
+ARG LAZYGIT_VERSION=0.66.2
+RUN ARCH=$(dpkg --print-architecture) && \
+  case "$ARCH" in \
+    arm64) LAZYGIT_ARCH=arm64 ;; \
+    amd64) LAZYGIT_ARCH=x86_64 ;; \
+    *) echo "unsupported architecture: $ARCH" >&2 && exit 1 ;; \
+  esac && \
+  wget -O /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_linux_${LAZYGIT_ARCH}.tar.gz" && \
+  tar -xzf /tmp/lazygit.tar.gz -C /usr/local/bin lazygit && \
+  rm /tmp/lazygit.tar.gz
+
+ARG NEOVIM_VERSION=0.12.6
+RUN ARCH=$(dpkg --print-architecture) && \
+  case "$ARCH" in \
+    arm64) NEOVIM_ARCH=arm64 ;; \
+    amd64) NEOVIM_ARCH=x86_64 ;; \
+    *) echo "unsupported architecture: $ARCH" >&2 && exit 1 ;; \
+  esac && \
+  wget -O /tmp/nvim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-${NEOVIM_ARCH}.tar.gz" && \
+  tar -xzf /tmp/nvim.tar.gz -C /usr/local --strip-components=1 && \
+  rm /tmp/nvim.tar.gz
+
 # ---------------------------------------------------------------------------
 # CUSTOMIZE HERE: add your project's own language toolchain. Example (Python, via a
 # pinned static-binary release rather than piping the curl|sh installer, for the same
@@ -78,6 +100,9 @@ RUN ARCH=$(dpkg --print-architecture) && \
 # will fail at container runtime even though this build step succeeds (builds aren't
 # firewalled — only the running container is).
 # ---------------------------------------------------------------------------
+
+# Provides pnpm and yarn at the version each project's packageManager field pins.
+RUN corepack enable
 
 # Set up non-root user
 USER node
