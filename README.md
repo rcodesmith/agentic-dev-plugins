@@ -25,6 +25,7 @@ marketplace allows as a cross-marketplace dependency.
   allowlist for that project's toolchain) plus a `templates/` folder of starter files
   and a set of `podman-sandbox-*` CLI commands for day-to-day use.
 - **project-blueprint** — One blueprint for every project: standard `just` commands, quality
-  gates, trunk-based delivery and the podman sandbox, across Python, Go and TypeScript.
-  Builds on [mattpocock-skills](https://github.com/mattpocock/skills) and podman-sandbox. See
+  gates, trunk-based delivery and promote-by-dispatch deploys, across Python, Go, TypeScript
+  and Rust. Builds on [mattpocock-skills](https://github.com/mattpocock/skills); works with or
+  without podman-sandbox. See
   [its README](plugins/project-blueprint/README.md).

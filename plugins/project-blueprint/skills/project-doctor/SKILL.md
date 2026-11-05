@@ -10,7 +10,7 @@ Audit the current repo against [`../../blueprint/rules.md`](../../blueprint/rule
 
 ## 1. Establish the facts
 
-Language(s), kind (service, library, tool), GitHub visibility and trunk name (`gh repo view --json visibility,defaultBranchRef`), and the GitHub plan (ask: `gh` cannot read it). These decide which rules are N/A.
+Language(s), kind (service, library, tool), whether the project uses the podman sandbox (SBX is N/A if not), GitHub visibility and trunk name (`gh repo view --json visibility,defaultBranchRef`), and the GitHub plan (ask: `gh` cannot read it). These decide which rules are N/A.
 
 ## 2. Check every rule
 

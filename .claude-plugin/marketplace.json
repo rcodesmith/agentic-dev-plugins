@@ -26,7 +26,7 @@
     {
       "name": "project-blueprint",
       "source": "./plugins/project-blueprint",
-      "description": "Bootstrap and maintain projects to one blueprint: standard just commands, quality gates, trunk-based delivery and the podman sandbox, across Python, Go and TypeScript.",
+      "description": "Bootstrap and maintain projects to one blueprint: standard just commands, quality gates, trunk-based delivery and promote-by-dispatch deploys, across Python, Go, TypeScript and Rust.",
       "category": "development",
       "tags": [
         "blueprint",

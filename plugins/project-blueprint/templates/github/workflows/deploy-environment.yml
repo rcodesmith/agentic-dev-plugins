@@ -32,7 +32,7 @@ jobs:
       cancel-in-progress: false # a half-finished apply is worse than a queued one
     steps:
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v5
+      - uses: ./.github/actions/setup
       - env:
           ENVIRONMENT: ${{ inputs.environment }}
           ARTIFACT: ${{ inputs.artifact }}

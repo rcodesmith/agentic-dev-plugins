@@ -4,22 +4,24 @@ Defaults for a new project. An existing repo keeps its tools and maps them onto 
 
 ## Tools
 
-uv (env + lock), ruff (format + lint), pyright (types), pytest. ruff, pyright and pytest are dev dependencies in `pyproject.toml` (`[dependency-groups] dev`), so `uv.lock` pins them; `mise.toml` pins the interpreter, uv and the shared tools.
+uv (env + lock), ruff (format + lint), pyright (types), pytest. ruff, pyright and pytest are dev dependencies in `pyproject.toml` (`[dependency-groups] dev`), so `uv.lock` pins them.
+
+## Pins
+
+- **Python**: `.python-version`, at an exact version (`3.14.0`). uv reads it and installs that interpreter.
+- **uv**: `required-version` in `pyproject.toml`; `setup-uv` in CI reads it.
 
 ```toml
-# mise.toml
-[tools]
-python = "3.14"
-uv = "0.13"
-just = "1.59"
-lefthook = "2.2"
-gitleaks = "8.30"
+# pyproject.toml
+[tool.uv]
+required-version = "==0.13.7"
 ```
 
 ## New project
 
 ```sh
-uv init --app        # or --lib for a library
+uv init --app        # or --lib for a library; writes .python-version
+uv python pin 3.14.0 # an exact version
 uv add --dev ruff pyright pytest
 uv lock
 ```
@@ -36,7 +38,7 @@ default:
 
 setup:
     uv sync --locked
-    lefthook install
+    [ -n "${CI:-}" ] || lefthook install
 
 fmt:
     uv run ruff format .
@@ -88,14 +90,24 @@ Config via `pydantic-settings`, with required fields that have no default (rule 
 
 `package-ecosystem: uv`
 
-## Sandbox
+## CI setup
 
-Dockerfile `CUSTOMIZE HERE` runs as root, so install Python where the `node` user can read it:
+Add to `.github/actions/setup/action.yml`:
+
+```yaml
+    - uses: astral-sh/setup-uv@v10
+```
+
+`uv sync` in `just setup` installs the interpreter `.python-version` names.
+
+## Podman sandbox (optional)
+
+Only when the project uses the `podman-sandbox` plugin. Dockerfile `CUSTOMIZE HERE` runs as root, so install Python where the `node` user can read it:
 
 ```dockerfile
-# uv: the pinned static-binary example already in CUSTOMIZE HERE, at the mise.toml version.
+# uv: the pinned static-binary example already in CUSTOMIZE HERE, at the required-version.
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
-RUN uv python install 3.14.x && chmod -R a+rX /opt/uv-python
+RUN uv python install 3.14.0 && chmod -R a+rX /opt/uv-python
 ```
 
 `devcontainer.json` `containerEnv`: `"UV_PROJECT_ENVIRONMENT": "/home/node/.venv"`. The workspace is bind-mounted from the host, so without this the container's Linux `.venv` and a macOS host's `.venv` overwrite each other.

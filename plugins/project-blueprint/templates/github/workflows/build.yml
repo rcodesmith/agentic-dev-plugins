@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: jdx/mise-action@v5
+      - uses: ./.github/actions/setup
       - run: just setup
       - id: tag
         run: echo "artifact=main-${SHA}" >> "$GITHUB_OUTPUT"

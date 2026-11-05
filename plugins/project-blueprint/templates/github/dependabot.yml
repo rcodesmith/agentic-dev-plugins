@@ -10,7 +10,7 @@ updates:
     cooldown:
       default-days: 7
 
-  # From the language pack: uv | gomod | npm
+  # From the language pack: uv | gomod | npm | cargo
   - package-ecosystem: LANGUAGE_ECOSYSTEM
     directory: /
     schedule:

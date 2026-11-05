@@ -32,7 +32,7 @@ jobs:
     environment: release
     steps:
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v5
+      - uses: ./.github/actions/setup
       - run: just setup
       - env:
           VERSION: ${{ github.ref_name }}

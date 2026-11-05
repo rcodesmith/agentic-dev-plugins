@@ -6,22 +6,16 @@ Defaults for a new project. An existing repo keeps its tools (eslint, prettier, 
 
 Node + pnpm, Biome (format + lint + import sorting), `tsc --noEmit` (types), Vitest. Biome, TypeScript and Vitest are dev dependencies, pinned by `pnpm-lock.yaml`.
 
-```toml
-# mise.toml
-[tools]
-node = "24"
-pnpm = "12"
-just = "1.59"
-lefthook = "2.2"
-gitleaks = "8.30"
-```
+## Pins
 
-Set `packageManager` in `package.json` to the same pnpm version.
+- **Node**: `.node-version`, at an exact version (`24.22.2`). `setup-node` reads it, as do fnm, nodenv, asdf and mise.
+- **pnpm**: `packageManager` in `package.json` (`"pnpm@11.28.11"`). Corepack and `pnpm/action-setup` read it.
 
 ## New project
 
 ```sh
-pnpm init
+echo 24.22.2 > .node-version
+pnpm init               # then set "packageManager": "pnpm@<version>"
 pnpm add -D typescript @biomejs/biome vitest @types/node
 pnpm exec tsc --init
 pnpm exec biome init
@@ -39,7 +33,7 @@ default:
 
 setup:
     pnpm install --frozen-lockfile
-    lefthook install
+    [ -n "${CI:-}" ] || lefthook install
 
 fmt:
     pnpm exec biome check --write .
@@ -99,9 +93,21 @@ Validate env at startup with a schema (zod) that has no defaults for required va
 
 `package-ecosystem: npm` (covers pnpm).
 
-## Sandbox
+## CI setup
 
-Set the `NODE_VERSION` build arg in `devcontainer.json` to the `mise.toml` Node major; the base image is `node:${NODE_VERSION}`. Pin pnpm in `CUSTOMIZE HERE` with `corepack enable && corepack prepare pnpm@<version> --activate`.
+Add to `.github/actions/setup/action.yml`:
+
+```yaml
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+```
+
+## Podman sandbox (optional)
+
+Only when the project uses the `podman-sandbox` plugin. Set the `NODE_VERSION` build arg in `devcontainer.json` to the `.node-version` major; the base image is `node:${NODE_VERSION}`. Pin pnpm in `CUSTOMIZE HERE` with `corepack enable && corepack prepare pnpm@<version> --activate`.
 
 `node_modules` holds platform-specific binaries (Biome's among them), and the workspace is bind-mounted from the host. On a macOS host, install dependencies in one place only, inside the sandbox or on the host, never both.
 

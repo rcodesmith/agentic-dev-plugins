@@ -1,0 +1,22 @@
+# Installs the tools the `just` recipes call, at pinned versions. The one place CI's tool
+# versions live; the README's Prerequisites list the same versions for developers.
+name: setup
+description: Install the pinned shared tools and the language toolchain
+
+runs:
+  using: composite
+  steps:
+    - name: Shared tools
+      shell: bash
+      env:
+        JUST_VERSION: "1.59.0"
+        GITLEAKS_VERSION: "8.30.1"
+      run: |
+        mkdir -p "$HOME/.local/bin"
+        curl -fsSL "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+          | tar -xz -C "$HOME/.local/bin" just
+        curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+          | tar -xz -C "$HOME/.local/bin" gitleaks
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    # Language toolchain: the steps from the language pack's "CI setup" section go here.

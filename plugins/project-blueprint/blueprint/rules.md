@@ -17,7 +17,7 @@ A rule is **N/A** when its condition is false (a library has no deploys; a repo 
 | AGENT-3 | Triage labels exist on the tracker. N/A when the `triage` skill is not installed (setup skips labels then). | `docs/agents/triage-labels.md` exists and `gh label list --json name` contains each label it names. | User runs `/setup-matt-pocock-skills` |
 | AGENT-4 | The domain glossary is `GLOSSARY.md` (or `GLOSSARY-MAP.md`), created lazily. Its absence passes; a legacy `CONTEXT.md` used as a glossary fails. | No root or per-context `CONTEXT.md` holding term definitions. | Rename, then `/grill-with-docs` |
 | AGENT-5 | `CODING_STANDARDS.md` holds judgement calls only; mechanical rules are lint config. | File exists; each entry is a rule no linter could check. | `templates/CODING_STANDARDS.md`; `/retro` proposes moving entries into lint |
-| AGENT-6 | `README.md` covers: what it is, quickstart, the standard commands, where docs live. The quickstart is `mise install && just setup` on a host, `just setup` in the sandbox. | All four present. | This plugin |
+| AGENT-6 | `README.md` covers: what it is, prerequisites, quickstart, the standard commands, where docs live. **Prerequisites** lists each tool and version from TOOL-1; how to install them is the developer's choice. The quickstart is `just setup`. | All five present; the prerequisite versions match TOOL-1's pins. | This plugin |
 
 ## CMD: standard commands
 
@@ -32,10 +32,10 @@ A rule is **N/A** when its condition is false (a library has no deploys; a repo 
 
 | ID | Rule | Check | Owner |
 |---|---|---|---|
-| TOOL-1 | `mise.toml` pins every tool the recipes call, at exact versions, including `just`, `lefthook` and `gitleaks`. | Each binary named in the `justfile` and `lefthook.yml` is in `mise.toml` or installed by the language's package manager; no `latest` and no bare major. | Language pack |
-| TOOL-2 | Dependencies are locked and installed from the lock. | Lockfile committed (`uv.lock`, `go.sum`, `pnpm-lock.yaml`); `setup` installs in locked/frozen mode. | Language pack |
-| TOOL-3 | `.editorconfig` and `.gitignore` exist; `.gitignore` covers `.env*` (except `.env.example`) and the sandbox secrets. | Files present; `git check-ignore .env .env.podman-sandbox-secrets` matches both. | `templates/` |
-| TOOL-4 | Pins move. Dependabot does not update `mise.toml` or the sandbox's `*_VERSION` build args, so they are reviewed by hand. | `mise outdated` lists nothing more than a minor behind, or the gap is deliberate. | This plugin |
+| TOOL-1 | Every tool the recipes call is pinned at an exact version, in a file both developers and CI read. The language toolchain uses the language's own pin file (the pack's **Pins**); the shared tools CI runs (`just`, `gitleaks`) are pinned in `.github/actions/setup/action.yml`; `lefthook`, which runs only on developer machines, is pinned by the README's Prerequisites. How a developer installs them (Homebrew, asdf, mise, a VM image, the podman sandbox) is not prescribed. | Each binary named in the `justfile` and `lefthook.yml` is pinned by the pack's pin file, the setup action, or the lockfile; no `latest` and no bare major. | Language pack, `templates/github/actions/setup/` |
+| TOOL-2 | Dependencies are locked and installed from the lock. | Lockfile committed (`uv.lock`, `go.sum`, `pnpm-lock.yaml`, `Cargo.lock`); `setup` installs in locked/frozen mode. | Language pack |
+| TOOL-3 | `.editorconfig` and `.gitignore` exist; `.gitignore` covers `.env*` (except `.env.example`), and the sandbox secrets when SBX applies. | Files present; `git check-ignore .env` matches, and `.env.podman-sandbox-secrets` too when SBX applies. | `templates/` |
+| TOOL-4 | Pins move. Dependabot updates lockfiles and actions, but not the toolchain pin files, the setup action's versions or a sandbox's `*_VERSION` build args, so those are reviewed by hand. | Each pinned version is no more than a minor behind its latest release (`gh release list --repo <owner>/<tool> --limit 1`), or the gap is deliberate. | This plugin |
 
 ## GATE: quality gates
 
@@ -47,13 +47,15 @@ A rule is **N/A** when its condition is false (a library has no deploys; a repo 
 | GATE-4 | Actions are pinned by major tag (SHA pinning is the stricter option) and kept current by Dependabot. Local `./` workflow references are exempt. | Every remote `uses:` names `@vN` or a SHA; none name a branch. | `templates/` |
 | GATE-5 | Workflow inputs reach shell through `env:`, never by `${{ }}` interpolation inside `run:`. | `actionlint` passes; grep `run:` blocks for `${{ inputs.` / `${{ github.event.`. | `trunk-delivery` templates |
 
-## SBX: sandbox
+## SBX: podman sandbox (optional)
+
+N/A unless the project uses the `podman-sandbox` plugin. Where developers work (natively, in a VM, in a devcontainer, in the podman sandbox) is their choice; these rules only keep the sandbox correct when it is used.
 
 | ID | Rule | Check | Owner |
 |---|---|---|---|
-| SBX-1 | The podman sandbox is installed. | `.devcontainer-podman-sandbox/` holds `Dockerfile`, `devcontainer.json`, `init-firewall.sh`, `web-research-toggle.sh`. | `podman-sandbox` skill |
-| SBX-2 | The sandbox provides the toolchain `mise.toml` pins, at the same versions. The shared tools (`just`, `lefthook`, `gitleaks`, `mise`, `actionlint`, `shellcheck`, `yq`) come from the base image's `*_VERSION` build args; the language toolchain from `CUSTOMIZE HERE`; Node from `NODE_VERSION`. | Compare `devcontainer.json` build args and the `CUSTOMIZE HERE` section against `mise.toml`. | `podman-sandbox` skill + language pack |
-| SBX-3 | `init-firewall.sh` `EXTRA_DOMAINS` covers the language's runtime registries. | Every domain listed in the language pack's **Sandbox** section is present. | Language pack |
+| SBX-1 | The sandbox files are complete. | `.devcontainer-podman-sandbox/` holds `Dockerfile`, `devcontainer.json`, `init-firewall.sh`, `web-research-toggle.sh`. | `podman-sandbox` skill |
+| SBX-2 | The sandbox provides the TOOL-1 versions. The shared tools come from the base image's `*_VERSION` build args; the language toolchain from `CUSTOMIZE HERE`; Node from `NODE_VERSION`. | Compare `devcontainer.json` build args and the `CUSTOMIZE HERE` section against the TOOL-1 pins. | `podman-sandbox` skill + language pack |
+| SBX-3 | `init-firewall.sh` `EXTRA_DOMAINS` covers the language's runtime registries. | Every domain listed in the language pack's **Podman sandbox** section is present. | Language pack |
 | SBX-4 | `.devcontainer-podman-sandbox/README.md` records what must never be set in the container, and the "First run" login steps. | Both sections present. | `podman-sandbox` skill |
 
 ## TRUNK: branching and delivery

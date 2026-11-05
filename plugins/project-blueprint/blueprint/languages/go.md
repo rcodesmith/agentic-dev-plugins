@@ -6,22 +6,16 @@ Defaults for a new project. An existing repo keeps its tools and maps them onto 
 
 The Go toolchain, golangci-lint v2 (format + lint, including `govet`), `go test`.
 
-```toml
-# mise.toml
-[tools]
-go = "1.27"
-golangci-lint = "2.15"
-just = "1.59"
-lefthook = "2.2"
-gitleaks = "8.30"
-```
+## Pins
 
-Set the `go` directive in `go.mod` to the same version.
+- **Go**: the `go` line in `go.mod`, at an exact version (`go 1.27.3`; `go mod init` writes the installed one). Go downloads that toolchain itself when the local one is older.
+- **golangci-lint**: a `tool` directive in a separate `tools/go.mod`, so its dependencies stay out of the project's module graph, and Dependabot updates it like any other dependency. The recipes run it with `go tool -modfile=tools/go.mod golangci-lint`.
 
 ## New project
 
 ```sh
 go mod init github.com/<owner>/<repo>
+mkdir tools && (cd tools && go mod init tools && go get -tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0)
 ```
 
 Add a `main.go` (or a package with one test) so `build` and `test` have something to run.
@@ -36,16 +30,17 @@ default:
 
 setup:
     go mod download
-    lefthook install
+    go mod download -modfile=tools/go.mod
+    [ -n "${CI:-}" ] || lefthook install
 
 fmt:
-    golangci-lint fmt
+    go tool -modfile=tools/go.mod golangci-lint fmt
 
 fmt-check:
-    golangci-lint fmt --diff
+    go tool -modfile=tools/go.mod golangci-lint fmt --diff
 
 lint:
-    golangci-lint run
+    go tool -modfile=tools/go.mod golangci-lint run
 
 typecheck:
     go build ./...
@@ -86,10 +81,20 @@ Config from env with no default for required values (rule RUN-2); fail at startu
 
 ## Dependabot
 
-`package-ecosystem: gomod`
+`package-ecosystem: gomod`, with `directories: ["/", "/tools"]` so the linter is updated too.
 
-## Sandbox
+## CI setup
 
-Dockerfile `CUSTOMIZE HERE`: install the Go tarball from `go.dev/dl` and the golangci-lint release binary at the versions in `mise.toml`.
+Add to `.github/actions/setup/action.yml`:
+
+```yaml
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+```
+
+## Podman sandbox (optional)
+
+Only when the project uses the `podman-sandbox` plugin. Dockerfile `CUSTOMIZE HERE`: install the Go tarball from `go.dev/dl` at the `go.mod` version. golangci-lint comes through `go tool`, so it needs no install.
 
 `EXTRA_DOMAINS`: `proxy.golang.org`, `sum.golang.org`, `storage.googleapis.com`. The module proxy redirects zip downloads to `storage.googleapis.com`, so it is required. **It is also a wide opening**: it reaches every public Google Cloud Storage bucket, which a compromised dependency could use to send data out, and the firewall allows by IP, so other Google front-end traffic gets through too. Tell the user before adding it. Private modules also need their host and a `GOPRIVATE` entry.
