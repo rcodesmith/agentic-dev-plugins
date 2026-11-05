@@ -6,7 +6,9 @@ IFS=$'\n\t'       # Stricter word splitting
 # CUSTOMIZE HERE: add your project's own package-registry / toolchain domains.
 # Examples (uncomment / add what your project actually needs):
 #   "pypi.org" "files.pythonhosted.org" "astral.sh"   # Python / uv / pip
-#   "crates.io" "static.crates.io" "sh.rustup.rs"     # Rust / cargo
+#   "crates.io" "index.crates.io" "static.crates.io" "static.rust-lang.org"
+#                                                     # Rust / cargo / rustup
+#   "doc.rust-lang.org" "docs.rs"                     # Rust documentation
 #   "proxy.golang.org" "sum.golang.org"               # Go
 #   "rubygems.org"                                    # Ruby / bundler
 #   "objects.githubusercontent.com" "release-assets.githubusercontent.com"

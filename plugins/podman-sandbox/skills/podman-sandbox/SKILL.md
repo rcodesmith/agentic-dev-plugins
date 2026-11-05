@@ -54,10 +54,10 @@ about the specific project, not just mechanical copying.
 
 2. **Inspect the target repo and adapt the Dockerfile's toolchain section.** Look for
    `pyproject.toml`/`requirements.txt` (Python), `package.json` (Node — already
-   covered by the Node 20 base image, usually nothing to add), `go.mod` (Go),
+   covered by the Node 22 base image, usually nothing to add), `go.mod` (Go),
    `Cargo.toml` (Rust), `Gemfile` (Ruby), etc. Add whatever the project needs to
-   build/run in the marked `CUSTOMIZE HERE` section of the Dockerfile. Prefer a
-   pinned static-binary release over piping a shell installer, same reasoning as the
+   build/run in the marked `CUSTOMIZE HERE` section of the Dockerfile, which has
+   commented-out examples for Python and Rust. Prefer a pinned static-binary release over piping a shell installer, same reasoning as the
    Dockerfile's own existing tools (reproducible, auditable; a `curl|sh` installer
    downloaded fresh on every build is neither).
 
@@ -66,10 +66,10 @@ about the specific project, not just mechanical copying.
    time — builds aren't firewalled, only the running container is) needs to resolve
    through this allowlist or installs will fail with no obvious reason why. Common
    ones: PyPI (`pypi.org`, `files.pythonhosted.org`, `astral.sh` for `uv`), Rust
-   (`crates.io`, `static.crates.io`), Go (`proxy.golang.org`, `sum.golang.org`),
-   RubyGems (`rubygems.org`). GitHub release-asset downloads (e.g. a toolchain's own
-   release tarball) redirect through `objects.githubusercontent.com`, which isn't
-   covered by the GitHub IP ranges already in the base allowlist — add it if the
+   (`crates.io`, `index.crates.io`, `static.crates.io`, `static.rust-lang.org`), Go
+   (`proxy.golang.org`, `sum.golang.org`), RubyGems (`rubygems.org`). GitHub
+   release-asset downloads (e.g. a toolchain's own release tarball) redirect through
+   `objects.githubusercontent.com`, which isn't covered by the GitHub IP ranges already in the base allowlist — add it if the
    toolchain installs via a GitHub release.
 
 4. **Ask the user two separate secrets questions.** First, what must *never* be set

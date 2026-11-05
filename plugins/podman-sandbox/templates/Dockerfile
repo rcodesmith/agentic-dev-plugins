@@ -95,6 +95,28 @@ RUN ARCH=$(dpkg --print-architecture) && \
 #     mv "/tmp/uv-${UV_TARGET}/uv" "/tmp/uv-${UV_TARGET}/uvx" /usr/local/bin/ && \
 #     rm -rf /tmp/uv.tar.gz "/tmp/uv-${UV_TARGET}"
 #
+# Example (Rust, via a pinned rustup with its checksum checked; a project's
+# rust-toolchain.toml can still select another version, which rustup fetches at runtime):
+#
+#   ARG RUSTUP_VERSION=1.29.3
+#   ARG RUST_VERSION=1.99.1
+#   ENV RUSTUP_HOME=/usr/local/rustup
+#   ENV CARGO_HOME=/usr/local/cargo
+#   ENV PATH=/usr/local/cargo/bin:$PATH
+#   RUN ARCH=$(dpkg --print-architecture) && \
+#     case "$ARCH" in \
+#       arm64) RUST_TARGET=aarch64-unknown-linux-gnu; RUSTUP_SHA256=9f608c142e0e38a78957d0661ba1dfaf0b6fb37184cfaa4b9a0aa57af6184282 ;; \
+#       amd64) RUST_TARGET=x86_64-unknown-linux-gnu; RUSTUP_SHA256=b1c8cb14e30889e7e2999e6b69e62d9e9b9ffc0f4df8180564d306d9680e6c55 ;; \
+#       *) echo "unsupported architecture: $ARCH" >&2 && exit 1 ;; \
+#     esac && \
+#     wget -O /tmp/rustup-init "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUST_TARGET}/rustup-init" && \
+#     echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum -c - && \
+#     chmod +x /tmp/rustup-init && \
+#     /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain "${RUST_VERSION}" \
+#       --component rustfmt --component clippy --component rust-analyzer --component rust-src && \
+#     rm /tmp/rustup-init && \
+#     chown -R node:node "$RUSTUP_HOME" "$CARGO_HOME"
+#
 # Remember: whatever registries this toolchain needs (PyPI, crates.io, RubyGems, the Go
 # module proxy, etc.) also need adding to EXTRA_DOMAINS in init-firewall.sh, or installs
 # will fail at container runtime even though this build step succeeds (builds aren't
