@@ -5,7 +5,7 @@ ENV TZ="$TZ"
 
 ARG CLAUDE_CODE_VERSION=latest
 
-# Install basic development tools and iptables/ipset
+# Install basic development tools, iptables, and nginx's stream module (the SNI proxy)
 RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
   git \
@@ -18,15 +18,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   gnupg2 \
   gh \
   iptables \
-  ipset \
   iproute2 \
   dnsutils \
-  aggregate \
+  nginx \
+  libnginx-mod-stream \
   jq \
   nano \
   vim \
   ca-certificates \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# init-firewall.sh runs the SNI proxy as this user: the only uid allowed to connect out
+# on port 443, so nothing else can reach the internet around the proxy.
+RUN useradd --system --no-create-home --shell /usr/sbin/nologin sniproxy
 
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
@@ -108,8 +112,8 @@ RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
 # Pin GitHub's SSH host keys so `git` over SSH doesn't fail with "Host key verification
 # failed" (no interactive prompt to accept them). Fetched at build time — builds aren't
-# firewalled — from the same api.github.com/meta endpoint init-firewall.sh trusts for
-# GitHub's IP ranges. Only matters if the project opts into an SSH key; see the skill.
+# firewalled — from api.github.com/meta. Only matters if the project opts into an SSH
+# key; see the skill.
 RUN mkdir -p -m 700 /home/node/.ssh && \
   wget -qO- https://api.github.com/meta | jq -r '.ssh_keys[] | "github.com " + .' > /home/node/.ssh/known_hosts && \
   test -s /home/node/.ssh/known_hosts
