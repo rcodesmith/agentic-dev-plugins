@@ -61,7 +61,7 @@ about the specific project, not just mechanical copying.
    pinned static-binary release over piping a shell installer, same reasoning as the
    Dockerfile's own existing tools (reproducible, auditable; a `curl|sh` installer
    downloaded fresh on every build is neither).
-   The base image already ships `just`, `lefthook`, `gitleaks`, `mise`, `actionlint`,
+   The base image already ships `just`, `lefthook`, `gitleaks`, `actionlint`,
    `shellcheck` and `yq`; change their `*_VERSION` build args rather than reinstalling
    them.
 
