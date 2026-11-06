@@ -105,6 +105,6 @@ GitHub's Ubuntu runners ship rustup; with no arguments it installs the toolchain
 
 ## Podman sandbox (optional)
 
-Only when the project uses the `podman-sandbox` plugin. Dockerfile `CUSTOMIZE HERE` runs as root: install rustup (the pinned `rustup-init` binary from `static.rust-lang.org`, not `curl | sh`) with `RUSTUP_HOME=/opt/rustup` and `CARGO_HOME=/opt/cargo`, then the `rust-toolchain.toml` version with its components, and `chmod -R a+rX` both. Set `devcontainer.json` `containerEnv` `"CARGO_HOME": "/home/node/.cargo"` so the `node` user's registry cache is writable, with `/opt/cargo/bin` on `PATH`.
+Only when the project uses the `podman-sandbox` plugin. Dockerfile `CUSTOMIZE HERE` runs as root: install rustup (the pinned `rustup-init` binary from `static.rust-lang.org`, not `curl | sh`) with `RUSTUP_HOME=/opt/rustup` and `CARGO_HOME=/opt/cargo`, then the `rust-toolchain.toml` version with its components, and `chmod -R a+rX` both. Set `devcontainer.json` `containerEnv` `"CARGO_HOME": "/home/node/.cargo"` so the `node` user's registry cache is writable, with `/opt/cargo/bin` on `PATH`, and `"CARGO_TARGET_DIR": "/home/node/.cargo-target"`. The workspace is bind-mounted from the host, so without it the container's Linux build output and a macOS host's share `target/`, and each side keeps invalidating the other's.
 
 `EXTRA_DOMAINS`: `index.crates.io`, `static.crates.io` (crate index and downloads). Add `static.rust-lang.org` only if the toolchain may change without rebuilding the image; rustup downloads toolchains from it.

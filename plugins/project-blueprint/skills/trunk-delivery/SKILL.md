@@ -41,8 +41,9 @@ Branch protection is not available on private repos on GitHub Free. There, the g
 - **Environments are deploy targets, never branches.** There is no `develop`, `staging` or `production` branch.
 - **Build once, promote the same artifact.** A push to `main` runs `check`; when it passes, `just package` builds one artifact tagged `main-<sha>`. Every environment deploys that artifact; nothing rebuilds it.
 - **Dev is automatic.** The new artifact deploys to `development` if its commit is still the tip of `main`; an older commit that finishes late never overwrites a newer one.
-- **Prod is a named promotion.** `deploy-production` is a `workflow_dispatch` taking an **existing** artifact tag. It plans by default and applies only when `apply` is ticked. It fails on any ref other than `main`. It declares `environment: production`, so reviewers can be added later with no workflow change.
-- **Deploys are serialized per deployable and environment**, and an in-progress deploy is never cancelled.
+- **Prod is a named promotion.** `deploy-production` is a `workflow_dispatch` taking an **existing** artifact tag. It plans by default and applies only when `apply` is ticked. It fails on any ref other than `main`, and on an artifact whose commit is not on `main`. It declares `environment: production`, so reviewers can be added later with no workflow change.
+- **A deploy runs the artifact's own commit's deploy code**, the pairing dev ran. A rollback is promoting an older artifact, and brings that commit's deploy code with it.
+- **Applies are serialized per deployable and environment**, plans queue separately, and an in-progress deploy is never cancelled.
 - **Dev and prod credentials are kept apart.** With GitHub Environments, each environment holds its own secrets. Without them (private repos on GitHub Free), see "Without GitHub Environments" in the reference below before writing any deploy workflow.
 - **A new environment** (staging, a demo) is a deploy target plus a dispatch or job calling `deploy-environment`. It never gets a branch.
 
@@ -55,7 +56,7 @@ The templates, what may be adapted in them, and the `just` recipe contract they 
 
 ## Hotfixes
 
-A hotfix is an ordinary `fix/` branch merged to `main`, then promoted. A fix that lands anywhere but `main` is lost on the next deploy.
+A hotfix is an ordinary `fix/` branch merged to `main`, then promoted. Rolling back instead means promoting an older artifact (see Deploys). A fix that lands anywhere but `main` is lost on the next deploy.
 
 ## Why
 

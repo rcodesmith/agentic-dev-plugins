@@ -4,10 +4,10 @@ The workflow templates are in [`../../../templates/github/workflows/`](../../../
 
 | Template | Trigger | Does |
 |---|---|---|
-| `check.yml` | PR, push to `main`, `workflow_call` | `just setup`, `just check`, then `just build` |
+| `check.yml` | PR, push to `main`, `workflow_call` | `just setup`, `just check`, `just build`, then `actionlint` |
 | `build.yml` | `check` succeeding on a push to `main` | `just package main-<sha>`, then deploys that tag to `development` if the commit is still the tip of `main` |
-| `deploy-environment.yml` | `workflow_call` only | `just setup`, then `just deploy <env> <artifact> <plan\|apply>`, serialized per deployable and environment |
-| `deploy-production.yml` | `workflow_dispatch` | refuses non-`main` refs, then calls `deploy-environment` for `production` |
+| `deploy-environment.yml` | `workflow_call` only | checks out the artifact's own commit, `just setup`, then `just deploy <env> <artifact> <plan\|apply>`; applies are serialized per deployable and environment |
+| `deploy-production.yml` | `workflow_dispatch` | refuses non-`main` refs and artifacts whose commit is not on `main`, then calls `deploy-environment` for `production` |
 | `release.yml` | push of tag `v*.*.*` | verifies the tag's commit is on `main`, calls `check`, `just publish <version>` |
 
 Services take the first four; libraries take `check.yml` and `release.yml`; tools take `check.yml`.
@@ -30,6 +30,20 @@ Anything else is a change to the blueprint, not to the project.
 - **`publish VERSION`** publishes a library at VERSION, after checking VERSION matches the project's own version field, and builds the package itself first: `release.yml` runs nothing between `just setup` and `just publish`. Prefer the registry's trusted publishing (OIDC) where the publishing tool supports it; otherwise use a scoped token held in the `release` environment.
 
 The templates pass every input through `env:`, never by `${{ }}` inside `run:`: a dispatch input is user-controlled text, and interpolating it into shell is script injection. For the same reason, declare recipe parameters with `$` (`deploy $ENV $ARTIFACT $MODE:`) so they arrive as quoted environment variables rather than `{{ }}` text spliced into the recipe's shell.
+
+Until `package` and `deploy` are implemented, their stubs **fail** (`echo "package: not implemented" >&2; exit 1`). A stub that exits 0 turns the first merge into a green "deploy" that shipped nothing.
+
+## Which code deploys
+
+`deploy-environment` checks out the artifact's own commit, not the tip of `main`. Dev deployed that artifact with that commit's deploy code, so promoting it to prod repeats the pairing dev tested. Rolling back is promoting an older artifact, and its deploy code comes with it: an infrastructure change made after that commit is reverted too. When that is not wanted, roll forward with a fix instead.
+
+## Queues
+
+GitHub keeps at most one running and one pending run per concurrency group; a newer pending run replaces the older one, which shows as cancelled.
+
+- **`check` on `main`** queues per commit, and `build` has no queue, so every commit whose check passes gets its artifact.
+- **Dev deploys** share one queue per deployable. A waiting deploy replaced by a newer one is the intended outcome: dev follows the tip.
+- **Prod applies** share one queue, and plans queue separately, so a plan never displaces a waiting apply. Two applies dispatched while a third runs leave only the newer one waiting. A plan can run while an apply holds the state lock; it then fails, and is re-run.
 ## Credentials
 
 A recipe sees a secret only when the workflow names it. `secrets: inherit` makes the caller's secrets *available* to the called workflow; it does not put any of them in a step's environment. So each template marks two places:
@@ -58,8 +72,7 @@ Without environments, every secret and variable is repo-level, and `secrets: inh
 
 Each deployable gets its own `build-<name>.yml` and its own production promotion. Per deployable (here `web`, under `apps/web/`):
 
-- **Artifact prefix**: `web-main-<sha>` in the `tag` step.
-- **Build queue**: `concurrency.group: build-web-main`.
+- **Artifact prefix**: `web-main-<sha>` in the `tag` step. `deploy-production`'s artifact check reads the commit after `main-`, so the prefix needs no change there.
 - **Which deployable**: `DEPLOYABLE: web` in the `package` step's `env:`, and `deployable: web` passed to `deploy-environment`, which hands it to `just deploy` as `DEPLOYABLE` and queues each deployable separately. Production does the same: add a `deployable` `choice` input to `deploy-production.yml` (an input, not a free string), and pass it through.
 - **Only build what changed.** `workflow_run` takes no `paths:` filter, so add a first job that compares this commit with the last successful run of the same workflow, and make `package` depend on it:
 
@@ -94,7 +107,7 @@ Each deployable gets its own `build-<name>.yml` and its own production promotion
           fi
 ```
 
-`package` then takes `needs: changes` and `if: needs.changes.outputs.changed == 'true'`. Comparing with the last successful run, not the parent commit, catches a change whose own run was cancelled while queued.
+`package` then takes `needs: changes` and `if: needs.changes.outputs.changed == 'true'`. Comparing with the last successful run, not the parent commit, catches a change whose own run failed.
 
 ## Plan-then-apply
 
@@ -109,5 +122,5 @@ The `require-main` job stops accidental dispatches from feature branches, which 
 Some frameworks bake environment config into the build. Next.js inlines `NEXT_PUBLIC_*` at build time. Prefer making the build environment-agnostic (read config at runtime, from the server or a fetched config file). When that is not yet possible, the documented exception is:
 
 - `package` runs per environment, but **only from a commit that already deployed to dev**, and the prod dispatch names that commit (`main-<sha>`) rather than a branch.
-- Adapt `deploy-production.yml` to check out exactly that SHA and run `just package` for production before `just deploy`, so the code is the tested code even though the bundle is rebuilt.
+- Add a job to `deploy-production.yml` between `require-main` and `deploy` that checks out `needs.require-main.outputs.sha` and runs `just package` for production, so the code is the tested code even though the bundle is rebuilt.
 - Record the exception, and the work to remove it, in an ADR.

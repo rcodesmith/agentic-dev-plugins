@@ -9,8 +9,10 @@ on:
 permissions:
   contents: read
 
+# A PR keeps only its newest run. Each push to main gets its own group: GitHub keeps one
+# pending run per group and drops the rest, and a commit whose check never ran gets no artifact.
 concurrency:
-  group: check-${{ github.workflow }}-${{ github.ref }}
+  group: check-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -25,3 +27,4 @@ jobs:
       - run: just check
       # `check` leaves `build` out to keep the local gate fast; CI still proves it builds.
       - run: just build
+      - run: actionlint

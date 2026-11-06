@@ -11,6 +11,10 @@ on:
         description: Existing artifact tag, e.g. main-<sha>. Required so a deploy only ships an artifact someone named.
         type: string
         required: true
+      ref:
+        description: The artifact's own commit. The deploy code is checked out at it, so every environment runs the artifact with the deploy code dev ran it with.
+        type: string
+        required: true
       apply:
         description: false = plan only
         type: boolean
@@ -27,11 +31,15 @@ jobs:
       contents: read
       id-token: write # OIDC to the cloud; remove from here, build and deploy-production together
     environment: ${{ inputs.environment }}
+    # Plans queue apart from applies, so a plan dispatch never replaces a waiting apply.
+    # GitHub keeps one pending run per group: a newer apply replaces a waiting older one.
     concurrency:
-      group: deploy-${{ inputs.deployable }}-${{ inputs.environment }}
+      group: deploy-${{ inputs.deployable }}-${{ inputs.environment }}${{ !inputs.apply && '-plan' || '' }}
       cancel-in-progress: false # a half-finished apply is worse than a queued one
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/setup
       - run: just setup # the recipe may call project dependencies (sst, terraform wrappers, uv run)
       # CREDENTIALS: the project's cloud login step goes here, e.g. an OIDC role assumption.

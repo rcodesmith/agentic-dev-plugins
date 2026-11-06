@@ -15,13 +15,18 @@ Node + pnpm, Biome (format + lint + import sorting), `tsc --noEmit` (types), Vit
 
 ```sh
 echo 24.22.2 > .node-version
-pnpm init               # then set "packageManager": "pnpm@<version>"
+pnpm init               # then set "packageManager": "pnpm@<version>" and "type": "module"
 pnpm add -D typescript @biomejs/biome vitest @types/node
-pnpm exec tsc --init
+pnpm exec tsc --init    # then set "types": ["node"] and "outDir": "dist"
 pnpm exec biome init
 ```
 
-`pnpm init` writes only a `test` script, so add the `build` script `just build` calls: `"build": "tsc"`, with `"outDir": "dist"` in `tsconfig.json` (a framework's own build, such as `next build`, replaces it). The first `pnpm add` writes `pnpm-lock.yaml`; `--frozen-lockfile` in `setup` fails without it. `tsc --init` defaults to `nodenext` module resolution, so relative imports need their `.js` extension (`./add.js`).
+Then edit what the generators wrote:
+
+- **`package.json`**: `"type": "module"`. `tsc --init` turns on `verbatimModuleSyntax` with `nodenext`, which rejects `import` syntax in a CommonJS package, and a package without `type` is CommonJS. Add the `build` script `just build` calls, `"build": "tsc"`; `pnpm init` writes only `test` (a framework's own build, such as `next build`, replaces it).
+- **`tsconfig.json`**: `"types": ["node"]`, because `tsc --init` writes `"types": []`, which leaves out `@types/node` (`process.env` would not type-check); and `"outDir": "dist"`.
+
+The first `pnpm add` writes `pnpm-lock.yaml`; `--frozen-lockfile` in `setup` fails without it. With `nodenext`, relative imports need their `.js` extension (`./add.js`).
 
 ## justfile
 
@@ -114,7 +119,7 @@ Add to `.github/actions/setup/action.yml`:
 
 ## Podman sandbox (optional)
 
-Only when the project uses the `podman-sandbox` plugin. Set the `NODE_VERSION` build arg in `devcontainer.json` to the `.node-version` major; the base image is `node:${NODE_VERSION}`. Pin pnpm in `CUSTOMIZE HERE` with `corepack enable && corepack prepare pnpm@<version> --activate`.
+Only when the project uses the `podman-sandbox` plugin. Set the `NODE_VERSION` build arg in `devcontainer.json` to the exact `.node-version` value (`24.22.2`, not `24`); the base image is `node:${NODE_VERSION}`, and Docker Hub tags every Node release, so the sandbox runs the same Node as CI (rule SBX-2). Pin pnpm in `CUSTOMIZE HERE` with `corepack enable && corepack prepare pnpm@<version> --activate`.
 
 `node_modules` holds platform-specific binaries (Biome's among them), and the workspace is bind-mounted from the host. On a macOS host, install dependencies in one place only, inside the sandbox or on the host, never both.
 

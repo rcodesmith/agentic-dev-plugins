@@ -10,9 +10,9 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: build-main
-  cancel-in-progress: false
+# No workflow-level concurrency: GitHub keeps one pending run per group and drops the rest,
+# which would leave commits with no artifact. Builds run in parallel, each with its own tag;
+# the tip check below and deploy-environment's queue keep dev on the newest commit.
 
 jobs:
   package:
@@ -64,5 +64,6 @@ jobs:
     with:
       environment: development
       artifact: ${{ needs.package.outputs.artifact }}
+      ref: ${{ github.event.workflow_run.head_sha }}
       apply: true
     secrets: inherit

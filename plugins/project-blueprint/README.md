@@ -21,9 +21,9 @@ One blueprint for every project, whatever the language: the same commands, the s
   - Go: golangci-lint, `go test`
   - TypeScript: pnpm, Biome, `tsc`, Vitest
   - Rust: rustfmt, Clippy, `cargo test`
-- **Pinned tools.** Every tool is pinned at an exact version in the language's own pin file (`.python-version`, `go.mod`, `.node-version`, `rust-toolchain.toml`) and in one CI setup action. How you install them on your machine is up to you.
+- **Pinned tools.** Every tool is pinned at an exact version: the language toolchain in the language's own pin file (`.python-version`, `go.mod`, `.node-version`, `rust-toolchain.toml`), the shared tools (`just`, `gitleaks`, `actionlint`) in one CI setup action, and `lefthook` in the README's prerequisites. How you install them on your machine is up to you.
 - **A pre-commit hook** ([lefthook](https://github.com/evilmartians/lefthook)) that checks formatting and lint, scans staged changes for secrets with gitleaks, and refuses commits directly on `main`.
-- **CI** that runs `just check` and `just build` on every PR and every push to `main`, including a secrets scan of the full history.
+- **CI** that runs `just check`, `just build` and `actionlint` on every PR and every push to `main`, including a secrets scan of the full history.
 - **Dependabot** for the language ecosystem and GitHub Actions, grouped, with a cooldown.
 - **Trunk-based delivery.** `main` is the only long-lived branch. Short `<type>/<issue#>-<slug>` branches are squash-merged after review. Releases are tags.
 - **Build once, promote the same artifact.** Services build one artifact per `main` commit, deploy it to dev automatically, and promote that same artifact to prod by a manual, plan-first dispatch. Libraries publish on a `vX.Y.Z` tag.
