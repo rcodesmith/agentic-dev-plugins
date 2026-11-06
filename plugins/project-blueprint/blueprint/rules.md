@@ -42,9 +42,9 @@ A rule is **N/A** when its condition is false (a library has no deploys; a repo 
 | ID | Rule | Check | Owner |
 |---|---|---|---|
 | GATE-1 | A pre-commit hook runs `fmt-check`, `lint`, a staged-secrets scan, and refuses commits on the trunk, through lefthook. | `lefthook.yml` matches `templates/lefthook.yml`; `just setup` installs it. | `templates/lefthook.yml` |
-| GATE-2 | CI runs `just check` on every PR and on every push to the trunk. | `check.yml` triggers on `pull_request` and `push` to the trunk, runs `just check` with `fetch-depth: 0` (the secrets scan reads history). | `templates/github/workflows/check.yml` |
+| GATE-2 | CI runs `just check` and `just build` on every PR and on every push to the trunk. | `check.yml` triggers on `pull_request` and `push` to the trunk, runs `just check` with `fetch-depth: 0` (the secrets scan reads history), then `just build`. | `templates/github/workflows/check.yml` |
 | GATE-3 | Dependabot updates the language ecosystem and GitHub Actions, grouped, with a cooldown. | `.github/dependabot.yml` lists both ecosystems; each has `cooldown`. | `templates/github/dependabot.yml` |
-| GATE-4 | Actions are pinned by major tag (SHA pinning is the stricter option) and kept current by Dependabot. Local `./` workflow references are exempt. | Every remote `uses:` names `@vN` or a SHA; none name a branch. | `templates/` |
+| GATE-4 | Actions are pinned by release tag and kept current by Dependabot: the major tag (`@vN`) where the action publishes one, otherwise its exact release (`@vX.Y.Z`). SHA pinning is the stricter option. Local `./` workflow references are exempt. | Every remote `uses:` names `@vN`, `@vX.Y.Z` or a SHA, and that ref exists (`gh api repos/<owner>/<action>/git/matching-refs/tags/<tag>`); none name a branch. | `templates/` |
 | GATE-5 | Workflow inputs reach shell through `env:`, never by `${{ }}` interpolation inside `run:`. | `actionlint` passes; grep `run:` blocks for `${{ inputs.` / `${{ github.event.`. | `trunk-delivery` templates |
 
 ## SBX: podman sandbox (optional)

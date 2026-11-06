@@ -23,3 +23,5 @@ jobs:
       - uses: ./.github/actions/setup
       - run: just setup
       - run: just check
+      # `check` leaves `build` out to keep the local gate fast; CI still proves it builds.
+      - run: just build

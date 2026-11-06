@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # OIDC to the cloud; remove from build, deploy-production and deploy-environment together
 
 concurrency:
   group: build-main
@@ -19,6 +18,12 @@ jobs:
   package:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
+    # This job installs dependencies on every main commit. Grant it only what the registry
+    # login needs, and give any cloud role it assumes push rights to the registry, nothing more.
+    permissions:
+      contents: read
+      # id-token: write  # only if the registry login below uses OIDC
+      # packages: write  # only if the registry is GHCR
     outputs:
       artifact: ${{ steps.tag.outputs.artifact }}
       is-tip: ${{ steps.tip.outputs.is-tip }}
@@ -32,8 +37,11 @@ jobs:
       - run: just setup
       - id: tag
         run: echo "artifact=main-${SHA}" >> "$GITHUB_OUTPUT"
+      # CREDENTIALS: the registry login step goes here, if `just package` needs one.
       - env:
           ARTIFACT: ${{ steps.tag.outputs.artifact }}
+          # Secrets the recipe reads, each named here, e.g.:
+          # REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: just package "$ARTIFACT"
       # A slower, older run must not overwrite dev with an older commit.
       - id: tip
@@ -49,6 +57,9 @@ jobs:
   deploy-development:
     needs: package
     if: needs.package.outputs.is-tip == 'true'
+    permissions:
+      contents: read
+      id-token: write # OIDC to the cloud; remove from here, deploy-production and deploy-environment together
     uses: ./.github/workflows/deploy-environment.yml
     with:
       environment: development

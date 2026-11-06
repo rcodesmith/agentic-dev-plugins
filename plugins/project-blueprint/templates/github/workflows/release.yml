@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # trusted publishing (OIDC to the registry); remove if unused
 
 jobs:
   require-main:
@@ -30,10 +29,16 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     environment: release
+    permissions:
+      contents: read
+      id-token: write # trusted publishing (OIDC to the registry); remove if unused
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - run: just setup
+      # CREDENTIALS: a registry login step goes here, if trusted publishing is not used.
       - env:
           VERSION: ${{ github.ref_name }}
+          # A publish token the recipe reads, named here when trusted publishing is not used, e.g.:
+          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: just publish "${VERSION#v}"

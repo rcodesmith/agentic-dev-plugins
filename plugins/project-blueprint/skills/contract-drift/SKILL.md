@@ -40,21 +40,27 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - env:
-          # Private owner: a fine-grained, read-only token scoped to that repo.
+          # Private owner: a fine-grained, read-only token scoped to the owner repos.
           # Public owner: the fallback works.
           GH_TOKEN: ${{ secrets.CONTRACT_READ_TOKEN || github.token }}
-          OWNER_REPO: org/owner-repo
-          SOURCE_PATH: src/schema.gql
-          COPY_PATH: apps/web/schema.gql
+          # One line per row of docs/contracts.md: owner repo, source path, copy path.
+          CONTRACTS: |
+            org/owner-repo src/schema.gql apps/web/schema.gql
         run: |
-          gh repo clone "$OWNER_REPO" owner -- --depth 1 --quiet
-          if ! diff -u "$COPY_PATH" "owner/$SOURCE_PATH"; then
-            echo "::error::$COPY_PATH has drifted from $OWNER_REPO. Run 'just sync-contracts' and commit."
-            exit 1
-          fi
+          status=0
+          while read -r repo src copy; do
+            [ -n "$repo" ] || continue
+            dir="owners/$repo"
+            [ -d "$dir" ] || gh repo clone "$repo" "$dir" -- --depth 1 --quiet
+            if ! diff -u "$copy" "$dir/$src"; then
+              echo "::error::$copy has drifted from $repo:$src. Run 'just sync-contracts' and commit."
+              status=1
+            fi
+          done <<< "$CONTRACTS"
+          exit "$status"
 ```
 
-One step per registered contract. Dependabot and fork PRs cannot read repo secrets, so against a private owner this check fails on them; leave it off the required checks.
+Add a line to `CONTRACTS` per registered contract. Each owner repo is cloned once, however many contracts it owns, and every drifted copy is reported before the job fails. Dependabot and fork PRs cannot read repo secrets, so against a private owner this check fails on them; leave it off the required checks.
 
 Done when `actionlint` passes on the file and a deliberately edited copy turns the job red.
 

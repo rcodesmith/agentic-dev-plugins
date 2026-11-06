@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # OIDC to the cloud; remove from build, deploy-production and deploy-environment together
 
 jobs:
   require-main:
@@ -30,6 +29,9 @@ jobs:
 
   deploy:
     needs: require-main
+    permissions:
+      contents: read
+      id-token: write # OIDC to the cloud; remove from here, build and deploy-environment together
     uses: ./.github/workflows/deploy-environment.yml
     with:
       environment: production

@@ -65,7 +65,17 @@ secrets:
 check: fmt-check lint typecheck test secrets
 ```
 
-Services add `run` (e.g. `uv run uvicorn <pkg>.main:app --reload`), `package` and `deploy`. Libraries add `publish VERSION` (`uv publish`, after checking VERSION against `pyproject.toml`).
+Services add `run` (e.g. `uv run uvicorn <pkg>.main:app --reload`), `package` and `deploy`. Libraries add `publish`, which builds first because `release.yml` runs nothing between `setup` and `publish`:
+
+```just
+publish $VERSION:
+    test "$(uv version --short)" = "$VERSION" || { echo "pyproject.toml is not at $VERSION" >&2; exit 1; }
+    rm -rf dist
+    uv build
+    uv publish
+```
+
+`uv publish` uses trusted publishing automatically in GitHub Actions when PyPI is configured for it.
 
 ## Lint config
 
@@ -95,10 +105,10 @@ Config via `pydantic-settings`, with required fields that have no default (rule 
 Add to `.github/actions/setup/action.yml`:
 
 ```yaml
-    - uses: astral-sh/setup-uv@v10
+    - uses: astral-sh/setup-uv@v10.3.3
 ```
 
-`uv sync` in `just setup` installs the interpreter `.python-version` names.
+setup-uv publishes no floating major tag (`@v10` does not resolve), so pin its exact release tag or a SHA; Dependabot keeps either current. It reads uv's version from `required-version` in `pyproject.toml`. `uv sync` in `just setup` installs the interpreter `.python-version` names.
 
 ## Podman sandbox (optional)
 
