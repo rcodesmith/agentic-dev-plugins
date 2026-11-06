@@ -96,11 +96,12 @@ Each deployable gets its own `build-<name>.yml` and its own production promotion
           WORKFLOW: ${{ github.workflow }}
           PATHS: apps/web packages/shared # the deployable and what it depends on
         run: |
+          read -ra paths <<< "$PATHS"
           last=$(gh run list --workflow "$WORKFLOW" --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
           # No earlier success, or it is gone from history: build.
           if [ -z "$last" ] || ! git cat-file -e "$last^{commit}" 2>/dev/null; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$last" HEAD -- $PATHS; then
+          elif git diff --quiet "$last" HEAD -- "${paths[@]}"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
