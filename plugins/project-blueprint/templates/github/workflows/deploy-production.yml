@@ -1,0 +1,58 @@
+# Promote an artifact that already exists to production. Plans unless `apply` is ticked.
+# Rolling back is promoting an older artifact: its own commit's deploy code comes with it.
+name: deploy-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        description: Existing artifact tag to promote, e.g. main-<sha>
+        type: string
+        required: true
+      apply:
+        description: Apply (unticked = plan only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  require-main:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.artifact.outputs.sha }}
+    steps:
+      # Failing steps, not a job-level `if:` — a skipped run would show green.
+      - run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::deploy-production runs only from main (got $GITHUB_REF)"
+            exit 1
+          fi
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # The artifact's commit must be on main; deploy-environment checks out that commit.
+      - id: artifact
+        env:
+          ARTIFACT: ${{ inputs.artifact }}
+        run: |
+          sha="${ARTIFACT##*main-}"
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || ! git merge-base --is-ancestor "$sha" origin/main 2>/dev/null; then
+            echo "::error::$ARTIFACT does not name a commit on main (expected main-<full sha>)"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: require-main
+    permissions:
+      contents: read
+      id-token: write # OIDC to the cloud; remove from here, build and deploy-environment together
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: production
+      artifact: ${{ inputs.artifact }}
+      ref: ${{ needs.require-main.outputs.sha }}
+      apply: ${{ inputs.apply }}
+    secrets: inherit

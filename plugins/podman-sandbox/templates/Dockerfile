@@ -1,4 +1,7 @@
-FROM node:22
+# Node version for the base image. Set it to the project's pinned Node, the exact version
+# (e.g. 24.22.2) when the project pins one; Docker Hub tags every Node release.
+ARG NODE_VERSION=24
+FROM node:${NODE_VERSION}
 
 ARG TZ
 ENV TZ="$TZ"
@@ -54,6 +57,38 @@ RUN ARCH=$(dpkg --print-architecture) && \
   wget "https://github.com/dandavison/delta/releases/download/${GIT_DELTA_VERSION}/git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   sudo dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
+
+# Shared dev tools every project gets: a task runner (just), git hooks (lefthook), a
+# secrets scanner (gitleaks), linters for workflows and shell (actionlint, shellcheck)
+# and a YAML query tool (yq). Pinned release binaries, installed
+# at build time: builds aren't firewalled, so nothing here needs an EXTRA_DOMAINS entry.
+ARG JUST_VERSION=1.59.0
+ARG LEFTHOOK_VERSION=2.2.2
+ARG GITLEAKS_VERSION=8.30.1
+ARG ACTIONLINT_VERSION=1.7.12
+ARG SHELLCHECK_VERSION=0.11.0
+ARG YQ_VERSION=4.54.1
+RUN set -eu && \
+  case "$(dpkg --print-architecture)" in \
+    arm64) RUST_ARCH=aarch64; GO_ARCH=arm64; GITLEAKS_ARCH=arm64 ;; \
+    amd64) RUST_ARCH=x86_64;  GO_ARCH=amd64; GITLEAKS_ARCH=x64 ;; \
+    *) echo "unsupported architecture" >&2 && exit 1 ;; \
+  esac && \
+  cd /tmp && \
+  wget -qO- "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${RUST_ARCH}-unknown-linux-musl.tar.gz" \
+    | tar -xz -C /usr/local/bin just && \
+  wget -qO- "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_${RUST_ARCH}.gz" \
+    | gunzip > /usr/local/bin/lefthook && \
+  wget -qO- "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${GITLEAKS_ARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin gitleaks && \
+  wget -qO- "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${GO_ARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin actionlint && \
+  wget -qO- "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.${RUST_ARCH}.tar.gz" \
+    | tar -xz -C /tmp && mv "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/ && rm -rf "/tmp/shellcheck-v${SHELLCHECK_VERSION}" && \
+  wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${GO_ARCH}" && \
+  chmod +x /usr/local/bin/just /usr/local/bin/lefthook /usr/local/bin/gitleaks \
+    /usr/local/bin/actionlint /usr/local/bin/shellcheck /usr/local/bin/yq && \
+  for t in just lefthook gitleaks actionlint shellcheck yq; do "$t" --version >/dev/null; done
 
 ARG LAZYGIT_VERSION=0.66.2
 RUN ARCH=$(dpkg --print-architecture) && \

@@ -7,7 +7,11 @@ Public Claude Code plugins for agentic development workflows.
 ```
 /plugin marketplace add rcodesmith/agentic-dev-plugins
 /plugin install podman-sandbox@agentic-dev-plugins
+/plugin install project-blueprint@agentic-dev-plugins
 ```
+
+`project-blueprint` also installs `mattpocock-skills` from `claude-plugins-official`, which this
+marketplace allows as a cross-marketplace dependency.
 
 ## Plugins
 
@@ -20,6 +24,11 @@ Public Claude Code plugins for agentic development workflows.
   through installing the pattern into a new project (adapting a Dockerfile/firewall
   allowlist for that project's toolchain) plus a `templates/` folder of starter files
   and a set of `podman-sandbox-*` CLI commands for day-to-day use.
+- **project-blueprint** — One blueprint for every project: standard `just` commands, quality
+  gates, trunk-based delivery and promote-by-dispatch deploys, across Python, Go, TypeScript
+  and Rust. Builds on [mattpocock-skills](https://github.com/mattpocock/skills); works with or
+  without podman-sandbox. See
+  [its README](plugins/project-blueprint/README.md).
 
 ## Alternatives to podman-sandbox
 

@@ -1,0 +1,19 @@
+{
+  "name": "project-blueprint",
+  "description": "Bootstrap and maintain projects to one blueprint: standard just commands, quality gates, pinned tools, trunk-based delivery and promote-by-dispatch deploys, across Python, Go, TypeScript and Rust. Builds on mattpocock-skills.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Ron Smith"
+  },
+  "keywords": [
+    "blueprint",
+    "bootstrap",
+    "trunk-based",
+    "ci",
+    "conventions"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": [
+    "mattpocock-skills@claude-plugins-official"
+  ]
+}
