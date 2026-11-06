@@ -55,10 +55,11 @@ about the specific project, not just mechanical copying.
 2. **Inspect the target repo and adapt the Dockerfile's toolchain section.** Look for
    `pyproject.toml`/`requirements.txt` (Python), `package.json` (Node — covered by
    the Node base image; set the `NODE_VERSION` build arg in `devcontainer.json` to the
-   project's Node major), `go.mod` (Go),
+   project's pinned Node, the exact version from `.node-version` when it has one),
+   `go.mod` (Go),
    `Cargo.toml` (Rust), `Gemfile` (Ruby), etc. Add whatever the project needs to
-   build/run in the marked `CUSTOMIZE HERE` section of the Dockerfile. Prefer a
-   pinned static-binary release over piping a shell installer, same reasoning as the
+   build/run in the marked `CUSTOMIZE HERE` section of the Dockerfile, which has
+   commented-out examples for Python and Rust. Prefer a pinned static-binary release over piping a shell installer, same reasoning as the
    Dockerfile's own existing tools (reproducible, auditable; a `curl|sh` installer
    downloaded fresh on every build is neither).
    The base image already ships `just`, `lefthook`, `gitleaks`, `actionlint`,
@@ -70,10 +71,10 @@ about the specific project, not just mechanical copying.
    time — builds aren't firewalled, only the running container is) needs to resolve
    through this allowlist or installs will fail with no obvious reason why. Common
    ones: PyPI (`pypi.org`, `files.pythonhosted.org`, `astral.sh` for `uv`), Rust
-   (`crates.io`, `static.crates.io`), Go (`proxy.golang.org`, `sum.golang.org`),
-   RubyGems (`rubygems.org`). GitHub release-asset downloads (e.g. a toolchain's own
-   release tarball) redirect through `objects.githubusercontent.com`, which isn't
-   covered by the GitHub IP ranges already in the base allowlist — add it if the
+   (`crates.io`, `index.crates.io`, `static.crates.io`, `static.rust-lang.org`), Go
+   (`proxy.golang.org`, `sum.golang.org`), RubyGems (`rubygems.org`). GitHub
+   release-asset downloads (e.g. a toolchain's own release tarball) redirect through
+   `objects.githubusercontent.com`, which isn't covered by the GitHub IP ranges already in the base allowlist — add it if the
    toolchain installs via a GitHub release.
 
 4. **Ask the user two separate secrets questions.** First, what must *never* be set
@@ -84,8 +85,8 @@ about the specific project, not just mechanical copying.
    *does* legitimately need at runtime (e.g. a scoped GitHub PAT for `gh`/`git push`)
    — those go in `.env.podman-sandbox-secrets` at the workspace root, see "Secrets"
    below; make sure it's covered by `.gitignore` before anything is written to it.
-   If the repo's remote is SSH and the agent needs to fetch/push, also see "Optional:
-   git over SSH" (a per-repo deploy key at `.podman-sandbox-ssh-key`).
+   If the agent needs to fetch or push, or the project has private git dependencies,
+   see "Git access".
 
 5. **Bring it up and verify the firewall is actually restrictive**:
    ```
@@ -116,6 +117,7 @@ podman-sandbox-start --remote-control   # pass extra claude flags through
 podman-sandbox-rebuild                  # rebuild image + recreate container, then attach
 podman-sandbox-research-on              # from a separate terminal, while a session is running
 podman-sandbox-research-off
+podman-sandbox-network open|restrict|status   # turn this project's restrictions off or on
 podman-sandbox-cleanup                  # remove stopped sandbox containers, any project
 ```
 
@@ -134,6 +136,53 @@ so no re-login.
 To point any of these at a project other than the current directory, add
 `--workspace <path>` (useful for running a quick command against a project you're not
 currently sitting in).
+
+## Sharing packages across projects with a tree
+
+A tree is a host folder holding several projects that share one mount and one package store,
+so `uv` and `pnpm` hard link each package once across all of them. Use one tree for projects
+you trust equally, and another for the rest:
+
+```
+~/sandboxes/work/         a tree, mounted at /workspaces in each of its projects' containers
+├── .packages/            the shared store, created on first use
+├── project-a/            each project has its own .devcontainer-podman-sandbox/
+└── project-b/
+```
+
+1. List each tree's path, one per line, in `~/.config/podman-sandbox/trees`.
+2. Clone projects into the tree. Each still gets its own container, login, firewall and session
+   tokens, and sessions start in the project's own folder.
+3. Add `uv` to the `Dockerfile` for Python projects. The template already enables `pnpm` through
+   Corepack, using the version in `packageManager`, so a project copy older than that needs
+   `RUN corepack enable` added. The store is set only for sessions from `podman-sandbox-start`, so
+   run installs there and not through a bare `podman exec` or `devcontainer exec`.
+4. Put worktrees inside the project, created from the container.
+5. Run `podman-sandbox-rebuild` for a project that already has a container.
+
+**A tree is one trust boundary.** Code in any of its sandboxes can read and change every project
+in the tree, including their secrets files and SSH keys, and `podman-sandbox-start` warns about
+those. A tampered store file changes that package in every project, because hard links share one
+file. Recover by deleting `.packages` and reinstalling in each project.
+
+Keep the tree out of cloud-synced folders. On the host, only read and edit files in these
+projects: planted hooks or scripts could otherwise run on the host.
+
+## Turning network restrictions off
+
+Run these on the host, from the project root. They apply to that project only, and need
+no rebuild.
+
+- `podman-sandbox-network open` lifts all network restrictions now. They stay off through
+  restarts and rebuilds until you turn them back on, and `podman-sandbox-start` warns at
+  every launch.
+- `podman-sandbox-network restrict` turns them back on now.
+- `podman-sandbox-network status` shows the saved choice and the running container's state.
+
+While they're off, anything in the sandbox can send the session's tokens and the workspace's
+files to any host, so keep tokens narrowly scoped. `podman-sandbox-research-on` and `-off`
+have no effect while restrictions are off. For a one-off task, prefer `research-on`, which
+opens only ports 80 and 443.
 
 ## Claude Code auth
 
@@ -199,17 +248,36 @@ plaintext (mode 600, never committed) — a smaller exposure than a live clearte
 argv, but not nothing; don't put a project using this file inside a folder that syncs
 to cloud storage or gets backed up unencrypted.
 
-Run `gh auth setup-git` once per session (inside the container) if `GH_TOKEN` is one
-of the entries and you also want `git push`/`pull` over HTTPS to work, not just
-`gh`/API calls.
+## Git access
+
+The template's `containerEnv` (the `GIT_CONFIG_*` entries) makes git in the container
+reach github.com over HTTPS, authenticated with `GH_TOKEN`. This covers SSH-form
+remotes and private git dependencies, with one token. Remote URLs stay as they are, so
+the host keeps using SSH.
+
+1. Add `GH_TOKEN` to `.env.podman-sandbox-secrets` (see "Secrets"). Use a fine-grained
+   token with Contents access on every private repo the agent needs: read for
+   dependencies, write for pushing. A fine-grained token covers one owner, so a repo
+   under another owner stays out of reach.
+2. For a project whose `devcontainer.json` lacks these entries, copy them from the
+   template and run `podman-sandbox-rebuild`. `containerEnv` is fixed when the
+   container is created. If the project sets its own `GIT_CONFIG_*`, merge them and
+   renumber, with `GIT_CONFIG_COUNT` equal to the number of pairs.
+3. Verify from a `podman-sandbox-start --shell` session: `git ls-remote origin`.
+
+Only sessions from `podman-sandbox-start` get the token, so private fetches fail under
+a bare `podman exec` or `devcontainer exec`. Other git hosts aren't covered: they need
+their own credentials and an `EXTRA_DOMAINS` entry.
 
 ## Optional: git over SSH
 
-If the repo's `origin` is an SSH URL (`git@github.com:...`) and you'd rather not
-switch it to HTTPS + `gh auth setup-git`, give the sandbox its own key. Out of the box,
-`git fetch` over SSH fails: there's no key in the container, and before the template
-pinned GitHub's host keys it also died first with `Host key verification failed`
-(no TTY to accept them on). The firewall already allows outbound port 22.
+Use this instead of "Git access" for a project that reaches a single repo and doesn't
+need a token. A deploy key can't reach any other repo, so it won't fetch private
+dependencies. The firewall already allows outbound port 22.
+
+First, in the project's `devcontainer.json`, set `GIT_CONFIG_COUNT` to `1` and delete
+the `GIT_CONFIG_KEY_1`, `_VALUE_1`, `_KEY_2` and `_VALUE_2` entries. Git rewrites
+github.com URLs to HTTPS while they're present, and never uses the key.
 
 1. On the host, generate a key **just for this sandbox** — no passphrase, since
    nothing in the container can prompt for one:

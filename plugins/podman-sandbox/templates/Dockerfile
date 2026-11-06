@@ -1,4 +1,5 @@
-# Node major for the base image. Match it to the project's pinned Node when it has one.
+# Node version for the base image. Set it to the project's pinned Node, the exact version
+# (e.g. 24.22.2) when the project pins one; Docker Hub tags every Node release.
 ARG NODE_VERSION=24
 FROM node:${NODE_VERSION}
 
@@ -89,6 +90,28 @@ RUN set -eu && \
     /usr/local/bin/actionlint /usr/local/bin/shellcheck /usr/local/bin/yq && \
   for t in just lefthook gitleaks actionlint shellcheck yq; do "$t" --version >/dev/null; done
 
+ARG LAZYGIT_VERSION=0.66.2
+RUN ARCH=$(dpkg --print-architecture) && \
+  case "$ARCH" in \
+    arm64) LAZYGIT_ARCH=arm64 ;; \
+    amd64) LAZYGIT_ARCH=x86_64 ;; \
+    *) echo "unsupported architecture: $ARCH" >&2 && exit 1 ;; \
+  esac && \
+  wget -O /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_linux_${LAZYGIT_ARCH}.tar.gz" && \
+  tar -xzf /tmp/lazygit.tar.gz -C /usr/local/bin lazygit && \
+  rm /tmp/lazygit.tar.gz
+
+ARG NEOVIM_VERSION=0.12.6
+RUN ARCH=$(dpkg --print-architecture) && \
+  case "$ARCH" in \
+    arm64) NEOVIM_ARCH=arm64 ;; \
+    amd64) NEOVIM_ARCH=x86_64 ;; \
+    *) echo "unsupported architecture: $ARCH" >&2 && exit 1 ;; \
+  esac && \
+  wget -O /tmp/nvim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-${NEOVIM_ARCH}.tar.gz" && \
+  tar -xzf /tmp/nvim.tar.gz -C /usr/local --strip-components=1 && \
+  rm /tmp/nvim.tar.gz
+
 # ---------------------------------------------------------------------------
 # CUSTOMIZE HERE: add your project's own language toolchain. Example (Python, via a
 # pinned static-binary release rather than piping the curl|sh installer, for the same
@@ -107,11 +130,36 @@ RUN set -eu && \
 #     mv "/tmp/uv-${UV_TARGET}/uv" "/tmp/uv-${UV_TARGET}/uvx" /usr/local/bin/ && \
 #     rm -rf /tmp/uv.tar.gz "/tmp/uv-${UV_TARGET}"
 #
+# Example (Rust, via a pinned rustup with its checksum checked; a project's
+# rust-toolchain.toml can still select another version, which rustup fetches at runtime):
+#
+#   ARG RUSTUP_VERSION=1.29.3
+#   ARG RUST_VERSION=1.99.1
+#   ENV RUSTUP_HOME=/usr/local/rustup
+#   ENV CARGO_HOME=/usr/local/cargo
+#   ENV PATH=/usr/local/cargo/bin:$PATH
+#   RUN ARCH=$(dpkg --print-architecture) && \
+#     case "$ARCH" in \
+#       arm64) RUST_TARGET=aarch64-unknown-linux-gnu; RUSTUP_SHA256=9f608c142e0e38a78957d0661ba1dfaf0b6fb37184cfaa4b9a0aa57af6184282 ;; \
+#       amd64) RUST_TARGET=x86_64-unknown-linux-gnu; RUSTUP_SHA256=b1c8cb14e30889e7e2999e6b69e62d9e9b9ffc0f4df8180564d306d9680e6c55 ;; \
+#       *) echo "unsupported architecture: $ARCH" >&2 && exit 1 ;; \
+#     esac && \
+#     wget -O /tmp/rustup-init "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUST_TARGET}/rustup-init" && \
+#     echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum -c - && \
+#     chmod +x /tmp/rustup-init && \
+#     /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain "${RUST_VERSION}" \
+#       --component rustfmt --component clippy --component rust-analyzer --component rust-src && \
+#     rm /tmp/rustup-init && \
+#     chown -R node:node "$RUSTUP_HOME" "$CARGO_HOME"
+#
 # Remember: whatever registries this toolchain needs (PyPI, crates.io, RubyGems, the Go
 # module proxy, etc.) also need adding to EXTRA_DOMAINS in init-firewall.sh, or installs
 # will fail at container runtime even though this build step succeeds (builds aren't
 # firewalled — only the running container is).
 # ---------------------------------------------------------------------------
+
+# Provides pnpm and yarn at the version each project's packageManager field pins.
+RUN corepack enable
 
 # Set up non-root user
 USER node

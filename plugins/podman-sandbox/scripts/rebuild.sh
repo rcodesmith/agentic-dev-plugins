@@ -54,10 +54,14 @@ if [ ! -f "$CONFIG" ]; then
     exit 1
 fi
 
+# shellcheck source=tree.sh
+source "$SCRIPT_DIR/tree.sh"
+
 UP_ARGS=(--workspace-folder "$WORKSPACE" --config "$CONFIG" --docker-path podman --remove-existing-container)
 if [ "$NO_CACHE" = true ]; then
     UP_ARGS+=(--build-no-cache)
 fi
+UP_ARGS+=(${TREE_UP_ARGS[@]+"${TREE_UP_ARGS[@]}"})
 
 echo "Rebuilding the sandbox image and recreating the container (any session running in it will end)..."
 devcontainer up "${UP_ARGS[@]}"
