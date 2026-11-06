@@ -27,7 +27,7 @@ One table, in `rules.md` order, failures first within each area:
 | ID | Verdict | Evidence | Fix |
 |---|---|---|---|
 
-The **Fix** column names the owner from `rules.md`. When the owner is another skill (`/setup-matt-pocock-skills`, `podman-sandbox`, `wizard`, `/grill-with-docs`, `/retro`), the fix is "run that skill", not an edit you make in its place.
+The **Fix** column names the owner from `rules.md`. When the owner is another skill (`/mattpocock-skills:setup-matt-pocock-skills`, `podman-sandbox`, `wizard`, `/mattpocock-skills:grill-with-docs`, `/mattpocock-skills:retro`), the fix is "run that skill", not an edit you make in its place.
 
 Below the table, list the three failures that matter most, by risk: a secret that could be committed, a deploy path that bypasses the trunk, prod credentials reachable from a dev deploy, or a fallback that sends a misconfigured service somewhere real outranks a missing README section.
 

@@ -79,15 +79,16 @@ In a pnpm/Turbo workspace, the recipes call `pnpm turbo run <task>` instead, and
 
 ## Lint config
 
-In `biome.json` (created by `biome init`), turn on the VCS integration:
+In `biome.json` (created by `biome init`), turn on the VCS integration and read indentation from `.editorconfig`:
 
 ```json
 {
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true }
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "formatter": { "enabled": true, "useEditorconfig": true }
 }
 ```
 
-`useIgnoreFile` keeps Biome out of `dist/`, `.next/` and `coverage/` by reading `.gitignore`.
+`useIgnoreFile` keeps Biome out of `dist/`, `.next/` and `coverage/` by reading `.gitignore`. `useEditorconfig` makes Biome format with the 2-space indent the template `.editorconfig` gives editors; Biome's own default is tabs, so without it every editor save fights `fmt-check`. Remove any `indentStyle` or `indentWidth` that `biome init` wrote, since settings in `biome.json` win over `.editorconfig`.
 
 ## Next.js
 

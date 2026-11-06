@@ -8,8 +8,8 @@ One blueprint for every project, whatever the language: the same commands, the s
 
 | Skill | Invoked by | Does |
 |---|---|---|
-| `/bootstrap-project` | you | Brings a new or existing repo up to the blueprint, verifies it with a green `just check`, then hands off to `/setup-matt-pocock-skills` |
-| `/project-doctor` | you | Audits a repo against every rule and reports pass, fail or N/A with evidence, then offers fixes |
+| `/project-blueprint:bootstrap-project` | you | Brings a new or existing repo up to the blueprint, verifies it with a green `just check`, then hands off to `/mattpocock-skills:setup-matt-pocock-skills` |
+| `/project-blueprint:project-doctor` | you | Audits a repo against every rule and reports pass, fail or N/A with evidence, then offers fixes |
 | `trunk-delivery` | the agent | Applies the branching, merging, deploy, release and hotfix rules whenever the agent branches, merges or touches a deploy |
 | `contract-drift` | the agent | Guards files copied between repos (a GraphQL or OpenAPI schema) with a CI check that goes red when the copy goes stale |
 
@@ -29,7 +29,7 @@ One blueprint for every project, whatever the language: the same commands, the s
 - **Build once, promote the same artifact.** Services build one artifact per `main` commit, deploy it to dev automatically, and promote that same artifact to prod by a manual, plan-first dispatch. Libraries publish on a `vX.Y.Z` tag.
 - **Runtime basics for services.** Config from the environment that fails loud when unset, structured JSON logs, and a health endpoint.
 - **Agent orientation.** A short `CLAUDE.md`, a `README.md` with prerequisites and quickstart, and a `CODING_STANDARDS.md` that holds judgement calls only (mechanical rules go in lint config).
-- **A rulebook** (`blueprint/rules.md`). Every rule has a check, so `/project-doctor` can audit any repo against the blueprint.
+- **A rulebook** (`blueprint/rules.md`). Every rule has a check, so `/project-blueprint:project-doctor` can audit any repo against the blueprint.
 
 ## How you work is up to you
 

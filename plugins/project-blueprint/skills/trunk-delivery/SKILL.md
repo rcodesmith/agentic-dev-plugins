@@ -12,18 +12,18 @@ One trunk, short-lived branches, environments as deploy targets. Every rule belo
 - **`main` is the only long-lived branch.** A repo whose trunk is still `master` keeps it until a rename is scheduled; read `main` as "the trunk" below, and in the workflow templates.
 - **Work branches** are `<type>/<issue#>-<slug>`: type is one of `feat`, `fix`, `chore`, `docs`, `ci`, `refactor`, `research`. Drop `<issue#>-` only for a chore with no issue. Example: `fix/251-supporting-content-panels`.
 - **A work branch lives days, not weeks.** Unfinished behaviour ships to `main` behind a flag that defaults off.
-- **`/implement-spec`'s integration branch** is `spec/<issue#>-<slug>`. It may outlive the days-not-weeks rule while the spec is in progress. The per-ticket branches `implement-spec` creates in worktrees are its own and keep whatever names it gives them; they merge into the integration branch only.
+- **`/mattpocock-skills:implement-spec`'s integration branch** is `spec/<issue#>-<slug>`. It may outlive the days-not-weeks rule while the spec is in progress. The per-ticket branches `implement-spec` creates in worktrees are its own and keep whatever names it gives them; they merge into the integration branch only.
 - **Bot branches** (`dependabot/*`) are exempt from the naming rule.
 
 ### Before committing
 
-Check the current branch. On `main`, create a work branch first: `/implement` commits to whatever branch is checked out. The lefthook pre-commit hook refuses commits on the trunk as a backstop; the first commit of an empty repo is allowed.
+Check the current branch. On `main`, create a work branch first: `/mattpocock-skills:implement` commits to whatever branch is checked out. The lefthook pre-commit hook refuses commits on the trunk as a backstop; the first commit of an empty repo is allowed.
 
 ## Merging
 
 1. Rebase or merge `main` into the branch until it is current.
 2. `just check` passes locally.
-3. Run `code-review` with `main` as the fixed point; fix what it finds.
+3. Run `mattpocock-skills:code-review` with `main` as the fixed point; fix what it finds. (Claude Code also ships a built-in `code-review`; this step means the mattpocock-skills one, which reviews against `CODING_STANDARDS.md` and the issue.)
 4. Open the PR with a body shaped by `pr`, closing its issue (`Closes #N`).
 5. CI `check` is green.
 6. **Squash merge.** The branch is deleted on merge.
