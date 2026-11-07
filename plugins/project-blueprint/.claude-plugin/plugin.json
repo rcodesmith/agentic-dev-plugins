@@ -1,7 +1,7 @@
 {
   "name": "project-blueprint",
   "description": "Bootstrap and maintain projects to one blueprint: standard just commands, quality gates, pinned tools, trunk-based delivery and promote-by-dispatch deploys, across Python, Go, TypeScript and Rust. Builds on mattpocock-skills.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Ron Smith"
   },
