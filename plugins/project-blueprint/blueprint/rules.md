@@ -34,7 +34,7 @@ A rule is **N/A** when its condition is false (a library has no deploys; a repo 
 |---|---|---|---|
 | TOOL-1 | Every tool the recipes, hooks and CI call is pinned at an exact version. The language toolchain uses the language's own pin file (the pack's **Pins**); the shared tools CI runs (`just`, `gitleaks`, `actionlint`) are pinned in `.github/actions/setup/action.yml`; `lefthook`, which runs only on developer machines, is pinned by the README's Prerequisites. The README's Prerequisites list every one of them for developers. How a developer installs them (Homebrew, asdf, mise, a VM image, the podman sandbox) is not prescribed. | Each binary named in the `justfile`, `lefthook.yml` and the workflows is pinned by the pack's pin file, the setup action, the lockfile, or (developer-only tools) the README's Prerequisites; no `latest` and no bare major. | Language pack, `templates/github/actions/setup/` |
 | TOOL-2 | Dependencies are locked and installed from the lock. | Lockfile committed (`uv.lock`, `go.sum`, `pnpm-lock.yaml`, `Cargo.lock`); `setup` installs in locked/frozen mode. | Language pack |
-| TOOL-3 | `.editorconfig` and `.gitignore` exist; `.gitignore` covers `.env*` (except `.env.example`), and the sandbox secrets when SBX applies. | Files present; `git check-ignore .env` matches, and `.env.podman-sandbox-secrets` too when SBX applies. | `templates/` |
+| TOOL-3 | `.editorconfig` and `.gitignore` exist; `.gitignore` covers `.env*`, and the sandbox secrets when SBX applies. | Files present; `git check-ignore .env` matches, and `.env.podman-sandbox-secrets` too when SBX applies. | `templates/` |
 | TOOL-4 | Pins move. Dependabot updates lockfiles and actions, but not the toolchain pin files, the setup action's versions or a sandbox's `*_VERSION` build args, so those are reviewed by hand. | Each pinned version is no more than a minor behind its latest release (`gh release view --repo <owner>/<tool> --json tagName`: the release GitHub marks latest, never a prerelease), or the gap is deliberate. A setup-action version bump comes with that release's SHA-256. | This plugin |
 
 ## GATE: quality gates
@@ -81,7 +81,7 @@ The rules themselves are in `trunk-delivery`. These rows check them.
 
 | ID | Rule | Check | Owner |
 |---|---|---|---|
-| RUN-1 | Config comes from the environment; `.env.example` lists every variable. | `.env.example` exists and every variable the code reads is in it. | This plugin |
+| RUN-1 | Config comes from the environment; `env.example` (no leading dot, so a `.env*` deny rule in `.claude/settings.json` does not block it) lists every variable. | `env.example` exists and every variable the code reads is in it. | This plugin |
 | RUN-2 | Required config **fails loud** when unset. No hardcoded fallback for an endpoint, credential or account. | Grep config loading for defaults on URLs, hosts, IPs and keys. A fallback that "works" sends a misconfigured deploy somewhere real. | This plugin |
 | RUN-3 | Logs are structured (JSON) to stdout. | Logger config. | Language pack |
 | RUN-4 | A `/health` (or equivalent) endpoint reports readiness. | Route exists. | This plugin |
