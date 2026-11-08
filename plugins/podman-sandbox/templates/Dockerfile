@@ -152,10 +152,43 @@ RUN ARCH=$(dpkg --print-architecture) && \
 #     rm /tmp/rustup-init && \
 #     chown -R node:node "$RUSTUP_HOME" "$CARGO_HOME"
 #
+# Example (Terraform + tflint with the AWS ruleset, for the offline checks: fmt -check,
+# init -backend=false, validate, tflint). Set TERRAFORM_VERSION to the version CI uses.
+# Each version bump needs that release's SHA-256 from its terraform_<v>_SHA256SUMS or
+# tflint checksums.txt. The ruleset plugin is fetched here at build time into
+# TFLINT_PLUGIN_DIR, so tflint never downloads it at runtime; TFLINT_AWS_RULESET_VERSION
+# must equal the version in the project's .tflint.hcl, or tflint reports it missing.
+#
+#   ARG TERRAFORM_VERSION=1.17.1
+#   ARG TFLINT_VERSION=0.65.0
+#   ARG TFLINT_AWS_RULESET_VERSION=0.50.0
+#   ENV TFLINT_PLUGIN_DIR=/usr/local/share/tflint/plugins
+#   RUN set -eu && \
+#     case "$(dpkg --print-architecture)" in \
+#       arm64) ARCH=arm64; TERRAFORM_SHA256=988e950a1c23058093b0e66ab2d5fb53fc18345ecfbd5871acf51dbac9325edd; TFLINT_SHA256=843017c47a98be1de4d88fa038daa293770fe25cd01656c4f08b2e30d1d3b3a0 ;; \
+#       amd64) ARCH=amd64; TERRAFORM_SHA256=4638628058e71a55212b1c563712eac03b902128f40740f3dc8174df12135061; TFLINT_SHA256=d4c545ed2e29d6338604b586f34f544f380f70f243aa72f7b484713835eaec61 ;; \
+#       *) echo "unsupported architecture" >&2 && exit 1 ;; \
+#     esac && \
+#     cd /tmp && \
+#     wget -qO terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${ARCH}.zip" && \
+#     echo "${TERRAFORM_SHA256}  terraform.zip" | sha256sum -c - && \
+#     wget -qO tflint.zip "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_${ARCH}.zip" && \
+#     echo "${TFLINT_SHA256}  tflint.zip" | sha256sum -c - && \
+#     unzip -oq terraform.zip terraform -d /usr/local/bin && \
+#     unzip -oq tflint.zip tflint -d /usr/local/bin && \
+#     rm terraform.zip tflint.zip && \
+#     printf 'plugin "aws" {\n  enabled = true\n  version = "%s"\n  source  = "github.com/terraform-linters/tflint-ruleset-aws"\n}\n' \
+#       "${TFLINT_AWS_RULESET_VERSION}" > /tmp/aws.tflint.hcl && \
+#     tflint --init --config /tmp/aws.tflint.hcl && \
+#     rm /tmp/aws.tflint.hcl && \
+#     chown -R node:node /usr/local/share/tflint && \
+#     terraform version && tflint --version
+#
 # Remember: whatever registries this toolchain needs (PyPI, crates.io, RubyGems, the Go
 # module proxy, etc.) also need adding to EXTRA_DOMAINS in init-firewall.sh, or installs
 # will fail at container runtime even though this build step succeeds (builds aren't
-# firewalled — only the running container is).
+# firewalled — only the running container is). Better still, fetch anything a tool would
+# otherwise download on first use (linter plugins, rulesets) here, as the tflint example does.
 # ---------------------------------------------------------------------------
 
 # Provides pnpm and yarn at the version each project's packageManager field pins.
