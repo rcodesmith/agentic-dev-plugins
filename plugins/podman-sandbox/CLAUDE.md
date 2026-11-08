@@ -62,6 +62,19 @@ Not yet tested: a working Claude session in a tree, more than one real project i
 Playwright tests, or a Python test suite. Secrets files and sandbox config remain readable and writable
 across a tree (issue #6).
 
+## Tool plugins are fetched at build time
+
+`tflint --init` and similar first-use downloads come from GitHub release assets, which the
+runtime firewall doesn't cover. Doing them in the Dockerfile avoids an allowlist entry and a
+GitHub API rate limit, and pins the plugin with the image. The Terraform example writes a
+throwaway `.tflint.hcl` for the build, because the project's own file isn't in the build
+context. Its version must therefore match the project's `.tflint.hcl`.
+
+Tested 2026-11-08 on arm64 with podman, building the example on `node:24`: checksums passed,
+and `tflint` as `node` with `--network=none` loaded the AWS ruleset and flagged an invalid
+instance type. Not yet tested: amd64, or a full build of the template with the example
+uncommented.
+
 ## Git test record
 
 Tested 2026-11-01 with one-off `podman exec --env` flags in a running sandbox:

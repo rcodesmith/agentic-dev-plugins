@@ -59,9 +59,15 @@ about the specific project, not just mechanical copying.
    `go.mod` (Go),
    `Cargo.toml` (Rust), `Gemfile` (Ruby), etc. Add whatever the project needs to
    build/run in the marked `CUSTOMIZE HERE` section of the Dockerfile, which has
-   commented-out examples for Python and Rust. Prefer a pinned static-binary release over piping a shell installer, same reasoning as the
+   commented-out examples for Python, Rust, and Terraform with tflint. Prefer a pinned static-binary release over piping a shell installer, same reasoning as the
    Dockerfile's own existing tools (reproducible, auditable; a `curl|sh` installer
-   downloaded fresh on every build is neither).
+   downloaded fresh on every build is neither). Check each download against a SHA-256
+   written into the Dockerfile, as the Rust and Terraform examples do. Pin each tool at
+   the version the project's CI uses, so a pass in the sandbox predicts a pass in CI.
+   When a tool downloads plugins or rulesets on first use (`tflint --init`, for example),
+   do that download in the Dockerfile too, so the running container never needs it.
+   Project-specific linters (`terraform`, `tflint`, and so on) go here, not in the shared
+   tools block.
    The base image already ships `just`, `lefthook`, `gitleaks`, `actionlint`,
    `shellcheck` and `yq`; change their `*_VERSION` build args rather than reinstalling
    them.
@@ -72,7 +78,8 @@ about the specific project, not just mechanical copying.
    through this allowlist or installs will fail with no obvious reason why. Common
    ones: PyPI (`pypi.org`, `files.pythonhosted.org`, `astral.sh` for `uv`), Rust
    (`crates.io`, `index.crates.io`, `static.crates.io`, `static.rust-lang.org`), Go
-   (`proxy.golang.org`, `sum.golang.org`), RubyGems (`rubygems.org`). GitHub
+   (`proxy.golang.org`, `sum.golang.org`), RubyGems (`rubygems.org`), Terraform
+   providers (`registry.terraform.io`, `releases.hashicorp.com`). GitHub
    release-asset downloads (e.g. a toolchain's own release tarball) redirect through
    `objects.githubusercontent.com`, which isn't covered by the GitHub IP ranges already in the base allowlist — add it if the
    toolchain installs via a GitHub release.

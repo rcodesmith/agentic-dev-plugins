@@ -11,6 +11,7 @@ IFS=$'\n\t'       # Stricter word splitting
 #   "doc.rust-lang.org" "docs.rs"                     # Rust documentation
 #   "proxy.golang.org" "sum.golang.org"               # Go
 #   "rubygems.org"                                    # Ruby / bundler
+#   "registry.terraform.io" "releases.hashicorp.com"  # Terraform providers (init)
 #   "objects.githubusercontent.com" "release-assets.githubusercontent.com"
 #                                                     # GitHub release-asset downloads
 # registry.npmjs.org is already covered below (Claude Code itself needs it).
