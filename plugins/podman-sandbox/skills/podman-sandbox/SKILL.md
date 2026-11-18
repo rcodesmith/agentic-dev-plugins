@@ -104,16 +104,23 @@ about the specific project, not just mechanical copying.
    fails and whatever package manager you added works (e.g. `pip install` / `cargo
    search` / `go list` against its registry).
 
-6. **Log in once, before the first `podman-sandbox-start`** (why: "Claude Code auth"
-   below — do NOT use the default login flow or `claude setup-token`):
+6. **Log in and install plugins once, before the first `podman-sandbox-start`.** The
+   container's `~/.claude` is a named volume for this project only, so it starts with
+   no login, marketplaces or plugins, even if you have them on the host or in another
+   sandbox. Use `claude auth login --claudeai`, not the default login flow or
+   `claude setup-token` (why: "Claude Code auth" below). On the host, run
+   `claude plugin marketplace list` and `claude plugin list` to see what to add:
    ```
    podman-sandbox-start --shell      # brings the container up, drops into zsh
    claude auth login --claudeai      # approve in the browser, paste the code back
+   claude plugin marketplace add <owner/repo>                      # each marketplace you need
+   claude plugin install <plugin>@<marketplace> --scope user       # each plugin you need
    exit
    ```
-   Then **run `podman-sandbox-start` from inside the target repo** going forward. Add
-   these three lines as a "First run" section in the project's own
-   `.devcontainer-podman-sandbox/README.md` so the step isn't lost.
+   Rebuilds keep all of this. Then **run `podman-sandbox-start` from inside the target
+   repo** going forward. Add these lines as a "First run" section in the project's own
+   `.devcontainer-podman-sandbox/README.md`, listing the actual marketplaces and
+   plugins, so the step isn't lost.
 
 ## Daily usage (once installed)
 
